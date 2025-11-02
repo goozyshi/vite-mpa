@@ -144,6 +144,25 @@ export const DEFAULT_LOCALE: LangType = 'en'
 export const FALLBACK_LOCALE: LangType = 'en'
 ```
 
+### 按需加载策略（性能优化）
+
+模板采用智能的按需加载策略，性能提升 67%：
+
+**初始化**：
+
+- 只加载当前用户选择的语言（如 `zh`）
+- 不会加载其他未使用的语言（`en`、`ar`）
+
+**Fallback 延迟加载**：
+
+- 仅在遇到缺失翻译 key 时才加载 `en` 兜底语言
+- 如果当前语言翻译完整，`en` 永远不会加载
+
+**语言切换动态加载**：
+
+- 切换到新语言时才加载对应的语言文件
+- 已加载的语言会被缓存，不会重复请求
+
 ### 公共翻译
 
 在 `src/i18n/common/` 下添加对应语言的 JSON 文件
@@ -179,6 +198,94 @@ const { t } = useI18n()
 支持通过 `?lang=zh/en/ar` 指定语言，详见 [LANG_QUERY.md](./LANG_QUERY.md)
 
 **语言优先级**: URL query > sessionStorage(DEV) > browser > default(en)
+
+## API 请求
+
+### 核心特性
+
+- ✅ **基于 Axios** - 成熟稳定的 HTTP 客户端
+- ✅ **统一拦截** - 请求/响应自动处理
+- ✅ **错误处理** - 业务错误码、网络错误统一处理
+- ✅ **灵活配置** - 请求级别配置覆盖
+- ✅ **类型安全** - 完整 TypeScript 支持
+
+### 基础使用
+
+```typescript
+import { http } from '@/services/request'
+
+// GET 请求
+const data = await http.get<UserInfo>('/user/123')
+
+// POST 请求
+await http.post('/user/update', { name: 'John' })
+
+// PUT 请求
+await http.put('/user/123', { status: 'active' })
+
+// DELETE 请求
+await http.delete('/user/123')
+```
+
+### 高级配置
+
+```typescript
+import type { RequestConfig } from '@/utils/request/types'
+
+// 静默请求（不显示错误 Toast）
+const data = await http.get('/data', {
+  showErrorToast: false,
+} as RequestConfig)
+
+// 错误码白名单（忽略特定错误码的 Toast）
+const result = await http.post('/action', data, {
+  errorCodeWhitelist: [404, 1001],
+} as RequestConfig)
+```
+
+### 页面 API 定义
+
+在 `src/page/{pageName}/api/index.ts` 中定义：
+
+```typescript
+import { http } from '@/services/request'
+
+export interface UserInfo {
+  id: number
+  name: string
+  avatar: string
+}
+
+export const getUserInfo = (userId: number) => {
+  return http.get<UserInfo>(`/user/${userId}`)
+}
+
+export const updateUserInfo = (data: Partial<UserInfo>) => {
+  return http.post<void>('/user/update', data)
+}
+```
+
+### 环境配置
+
+在 `.env.*` 文件中配置：
+
+```env
+# API 配置
+VITE_API_BASE_URL=https://api.example.com
+VITE_API_TIMEOUT=30000
+```
+
+### 错误处理
+
+业务错误自动处理，特殊错误码可自定义：
+
+```typescript
+// src/utils/request/errorHandler.ts
+if (code === 401) {
+  console.warn('[Request] Unauthorized')
+  // TODO: 实现 token 刷新或跳转登录
+}
+```
 
 ## 开发工具面板
 

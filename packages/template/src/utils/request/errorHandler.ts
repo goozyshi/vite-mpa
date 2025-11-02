@@ -60,11 +60,20 @@ export const handleNetworkError = async (
 
     if (shouldShowToast) {
       if (error.response) {
-        showErrorToast(`Request failed: ${error.response.status}`)
+        const status = error.response.status
+        if (status === 404) {
+          showErrorToast('资源不存在 (404)')
+        } else if (status >= 400 && status < 500) {
+          showErrorToast(`请求错误 (${status})`)
+        } else if (status >= 500) {
+          showErrorToast(`服务器错误 (${status})`)
+        } else {
+          showErrorToast(`请求失败: ${status}`)
+        }
       } else if (error.request) {
-        showErrorToast('Network timeout, please try again')
+        showErrorToast('网络超时，请检查网络连接')
       } else {
-        showErrorToast('Request error')
+        showErrorToast('请求错误')
       }
     }
   }

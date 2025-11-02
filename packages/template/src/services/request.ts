@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from 'axios'
-import axiosRetry from 'axios-retry'
 import { DOMAIN, getApiTimeout } from '@/config/domain'
 import { setupRequestInterceptor, setupResponseInterceptor } from '@/utils/request/interceptors'
 import type { RequestConfig } from '@/utils/request/types'
@@ -13,18 +12,6 @@ const createAxiosInstance = (): AxiosInstance => {
     timeout: getApiTimeout(),
     headers: {
       'Content-Type': 'application/json',
-    },
-  })
-
-  // 配置重试机制
-  axiosRetry(instance, {
-    retries: 3,
-    retryDelay: (retryCount) => retryCount * 1000,
-    retryCondition: (error) => {
-      // 仅网络错误或5xx错误重试
-      if (!error.response) return true
-      const status = error.response.status
-      return status >= 500 && status < 600
     },
   })
 

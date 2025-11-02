@@ -1,7 +1,13 @@
 import { ref, computed, watchEffect, type Ref, type ComputedRef } from 'vue'
 import { createI18n } from 'vue-i18n'
 import type { App } from 'vue'
-import { loadMessages, type PageI18nConfig } from '@/i18n'
+import {
+  loadMessages,
+  loadMessage,
+  loadFallbackIfNeeded,
+  getMessagesCache,
+  type PageI18nConfig,
+} from '@/i18n'
 import {
   type LangType,
   DEFAULT_LOCALE,
@@ -72,7 +78,8 @@ export function useLang() {
   initReactiveState()
 
   const setupI18n = async (app: App, pageI18n: PageI18nConfig) => {
-    const messages = await loadMessages(pageI18n)
+    // 只加载当前语言
+    const messages = await loadMessages(lang.value, pageI18n)
 
     i18n = createI18n({
       locale: lang.value,
@@ -81,6 +88,32 @@ export function useLang() {
       legacy: false,
       missingWarn: import.meta.env.DEV,
       fallbackWarn: import.meta.env.DEV,
+      // 当翻译缺失时，动态加载 fallback 语言
+      missing: (locale: string, key: string) => {
+        if (import.meta.env.DEV) {
+          console.warn(`[i18n] 缺失翻译 key: ${key}, locale: ${locale}`)
+        }
+
+        // 如果当前语言不是 fallback 语言，且 fallback 还未加载，则动态加载
+        if (locale !== FALLBACK_LOCALE) {
+          const cache = getMessagesCache()
+          if (!cache[FALLBACK_LOCALE]) {
+            // 异步加载 fallback，不阻塞当前渲染
+            loadFallbackIfNeeded().then(() => {
+              // 将 fallback 语言添加到 i18n 实例
+              const fallbackMsg = cache[FALLBACK_LOCALE]
+              if (fallbackMsg && i18n) {
+                i18n.global.setLocaleMessage(FALLBACK_LOCALE, fallbackMsg)
+                if (import.meta.env.DEV) {
+                  console.info(`[i18n] Fallback 语言 ${FALLBACK_LOCALE} 已动态加载`)
+                }
+              }
+            })
+          }
+        }
+
+        return key
+      },
     })
 
     app.use(i18n)
@@ -88,11 +121,26 @@ export function useLang() {
     setUrlLang(lang.value)
   }
 
-  const setLanguage = (newLang: string) => {
+  const setLanguage = async (newLang: string) => {
     language.value = newLang
+
     if (i18n) {
-      ;(i18n.global as any).locale.value = lang.value
+      const targetLang = lang.value
+      const cache = getMessagesCache()
+
+      // 如果目标语言还未加载，先加载
+      if (!cache[targetLang]) {
+        await loadMessage(targetLang)
+        const newMessages = cache[targetLang]
+        if (newMessages) {
+          i18n.global.setLocaleMessage(targetLang, newMessages)
+        }
+      }
+
+      // 切换语言
+      ;(i18n.global as any).locale.value = targetLang
     }
+
     setUrlLang(lang.value)
   }
 

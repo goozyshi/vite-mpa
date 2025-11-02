@@ -24,26 +24,11 @@
 
       <Divider>Axios Request Test</Divider>
 
-      <CellGroup title="请求测试">
-        <Cell
-          title="成功请求"
-          label="测试基础请求（会 404，查看 Network）"
-          is-link
-          @click="handleTestSuccess"
-        />
-        <Cell title="失败请求" label="测试错误处理（显示 Toast）" is-link @click="handleTestFail" />
-        <Cell
-          title="静默失败"
-          label="测试静默请求（不显示 Toast）"
-          is-link
-          @click="handleTestSilent"
-        />
-        <Cell
-          title="白名单测试"
-          label="测试错误码白名单（不显示 Toast）"
-          is-link
-          @click="handleTestWhitelist"
-        />
+      <CellGroup title="请求测试（示例接口）">
+        <Cell title="基础请求" label="测试基础请求" is-link @click="handleTestSuccess" />
+        <Cell title="失败请求" label="测试错误提示" is-link @click="handleTestFail" />
+        <Cell title="静默请求" label="不显示错误提示" is-link @click="handleTestSilent" />
+        <Cell title="白名单测试" label="忽略特定错误码" is-link @click="handleTestWhitelist" />
       </CellGroup>
 
       <Divider>System Info</Divider>
@@ -78,42 +63,42 @@ const apiBase = computed(() => import.meta.env.VITE_API_BASE_URL)
 const dir = computed(() => (isRTL.value ? 'RTL' : 'LTR'))
 
 const handleTestSuccess = async () => {
-  console.log('[Test] Success request...')
+  console.log('[Test] 基础请求测试...')
   try {
     const result = await testSuccessRequest()
-    console.log('[Test] Success result:', result)
-    showToast('请求成功（实际会 404）')
+    console.log('[Test] 请求成功:', result)
+    showToast('请求成功')
   } catch (error) {
-    console.error('[Test] Success error:', error)
+    console.error('[Test] 请求失败:', error)
   }
 }
 
 const handleTestFail = async () => {
-  console.log('[Test] Fail request...')
+  console.log('[Test] 失败请求测试...')
   try {
     await testFailRequest()
   } catch (error) {
-    console.error('[Test] Fail error:', error)
+    console.error('[Test] 请求失败:', error)
   }
 }
 
 const handleTestSilent = async () => {
-  console.log('[Test] Silent request...')
+  console.log('[Test] 静默请求测试...')
   try {
     await testSilentRequest()
   } catch (error) {
-    console.error('[Test] Silent error (no toast):', error)
+    console.error('[Test] 静默失败:', error)
     showToast('静默失败（控制台可见）')
   }
 }
 
 const handleTestWhitelist = async () => {
-  console.log('[Test] Whitelist request...')
+  console.log('[Test] 白名单测试...')
   try {
     await testWhitelistRequest()
   } catch (error) {
-    console.error('[Test] Whitelist error (no toast):', error)
-    showToast('白名单错误（不显示错误 Toast）')
+    console.error('[Test] 白名单错误:', error)
+    showToast('白名单错误（不显示 Toast）')
   }
 }
 </script>

@@ -34,7 +34,8 @@ export const updateUserInfo = (data: Partial<UserInfo>) => {
 }
 
 /**
- * 测试：成功请求（实际会 404，但可以看到请求发送）
+ * 测试：成功请求
+ * 注意：这是示例请求，实际使用时替换为真实的 API 接口
  */
 export const testSuccessRequest = () => {
   return http.get<TestResponse>('/api/test/success')
@@ -49,6 +50,8 @@ export const testFailRequest = () => {
 
 /**
  * 测试：静默失败（不显示错误 Toast）
+ * 配置 showErrorToast: false 可以禁用错误提示
+ * 适用于不需要用户感知的后台请求
  */
 export const testSilentRequest = () => {
   return http.get<TestResponse>('/api/test/silent', {
@@ -58,6 +61,8 @@ export const testSilentRequest = () => {
 
 /**
  * 测试：错误码白名单
+ * 配置 errorCodeWhitelist 可以忽略特定错误码的 Toast
+ * 适用于需要业务逻辑处理特定错误的场景
  */
 export const testWhitelistRequest = () => {
   return http.post<TestResponse>('/api/test/whitelist', { test: true }, {
