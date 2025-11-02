@@ -9,20 +9,19 @@ export interface PageEntry {
 }
 
 export async function scanPages(): Promise<PageEntry[]> {
-  const htmlFiles = await glob('src/page/**/index.html', {
+  const htmlFiles = await glob('src/page/*/index.html', {
     cwd: process.cwd(),
     absolute: false,
   })
 
   return htmlFiles.map((file) => {
     const parts = file.split('/').slice(2)
-    const moduleName = parts[0]
-    const pageName = parts.slice(0, -1).join('/')
+    const pageName = parts[0]
 
     return {
       name: pageName,
       path: `/${file}`,
-      module: moduleName,
+      module: pageName,
       fullPath: path.resolve(process.cwd(), file),
     }
   })
@@ -46,4 +45,3 @@ export function groupPages(pages: PageEntry[]) {
 
   return grouped
 }
-

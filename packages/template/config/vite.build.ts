@@ -1,25 +1,33 @@
-import { defineConfig, mergeConfig } from 'vite'
-import { resolve } from 'path'
+import { mergeConfig, type UserConfig } from 'vite'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import baseConfig from './vite.base'
-import { scanPages } from '../scripts/utils/pages-scanner'
 
-export default defineConfig(async () => {
-  const pages = await scanPages()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-  const input: Record<string, string> = {}
-  pages.forEach((page) => {
-    input[page.name] = page.fullPath
-  })
-
+/**
+ * 为单个页面生成独立的构建配置
+ *
+ * @param pageName 页面名称（例如: example）
+ * @param pageDir 页面目录绝对路径（例如: /path/to/src/page/example）
+ * @returns 独立的 Vite 配置对象
+ */
+export function createBuildConfig(pageName: string, pageDir: string): UserConfig {
+  // mergeConfig 会创建新的配置对象，确保每个构建实例独立
   return mergeConfig(baseConfig, {
     base: process.env.VITE_CDN_URL || '/',
 
+    // 设置页面根目录（独立）
+    root: pageDir,
+
     build: {
       target: 'esnext',
-      outDir: resolve(__dirname, '../dist'),
+      // 输出到独立目录 dist/{pageName}/
+      outDir: resolve(__dirname, `../dist/${pageName}`),
       emptyOutDir: true,
       rollupOptions: {
-        input,
+        // 单页面构建，input 自动使用 root 下的 index.html
         output: {
           format: 'es',
           entryFileNames: 'js/[name]-[hash].js',
@@ -34,6 +42,29 @@ export default defineConfig(async () => {
             }
             return 'assets/[name]-[hash][extname]'
           },
+          manualChunks: (id) => {
+            // 合并所有 i18n 语言文件到一个 chunk
+            if (
+              id.includes('/i18n/common/') ||
+              id.includes('/i18n/zh.json') ||
+              id.includes('/i18n/en.json') ||
+              id.includes('/i18n/ar.json')
+            ) {
+              return 'i18n-common'
+            }
+            // 合并 Vant 组件
+            if (id.includes('node_modules/vant')) {
+              return 'vant'
+            }
+            // 合并 Vue 生态
+            if (
+              id.includes('node_modules/vue') ||
+              id.includes('node_modules/pinia') ||
+              id.includes('node_modules/vue-router')
+            ) {
+              return 'vue-vendor'
+            }
+          },
         },
       },
       minify: 'terser',
@@ -44,5 +75,4 @@ export default defineConfig(async () => {
       },
     },
   })
-})
-
+}

@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.1.0] - 2025-11-02
+
+### API 请求系统（阶段一：纯 Web，轻量设计）
+
+#### 核心功能
+
+- ✅ **Axios 集成**: 基于 axios@1.6.5 + axios-retry@4.0.0
+- ✅ **自动重试**: 网络错误或 5xx 错误自动重试 3 次，延迟递增
+- ✅ **超时控制**: 默认 30s，支持环境变量配置
+- ✅ **统一拦截器**: 请求/响应自动处理，预留 Bridge 扩展钩子
+- ✅ **错误处理**: 业务错误码、网络错误统一处理，支持 Toast 控制
+- ✅ **类型安全**: 完整 TypeScript 类型定义
+
+#### 设计理念
+
+- ✅ **轻量封装**: 保持 axios 原有能力，不做过度封装
+- ✅ **单一职责**: 域名、错误处理、拦截器独立模块
+- ✅ **低耦合**: 零 Bridge 依赖，纯 Web 可用
+- ✅ **预留扩展**: 通过钩子接口支持 Bridge 集成（阶段二）
+
+#### 目录结构
+
+```
+src/
+├── config/domain.ts              # 域名配置管理
+├── services/request.ts           # Axios 单例实例
+└── utils/request/
+    ├── types.ts                  # 类型定义
+    ├── interceptors.ts           # 拦截器
+    ├── errorHandler.ts           # 错误处理
+    └── index.ts                  # 导出
+```
+
+#### 环境变量
+
+- ✅ `VITE_API_BASE_URL`: API 基础 URL
+- ✅ `VITE_API_TIMEOUT`: 请求超时时间
+- ✅ `VITE_CDN_BASE_URL`: CDN 域名
+- ✅ `VITE_WS_BASE_URL`: WebSocket 域名
+- ✅ `VITE_PROJECT_URL`: 项目域名
+
+#### 页面 API 生成
+
+- ✅ `gen:page` 自动创建 `api/` 目录
+- ✅ 提供示例 API 定义模板
+
+---
+
 ## [1.0.0] - 2025-11-01
 
 ### 依赖库优化

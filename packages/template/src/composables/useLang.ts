@@ -94,5 +94,7 @@ export function useLang() {
 
 export function useI18n() {
   if (!i18n) throw new Error('i18n未初始化')
-  return { t: i18n.global.t }
+  return {
+    t: i18n.global.t as (key: string, ...args: any[]) => string,
+  }
 }

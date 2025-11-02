@@ -140,11 +140,108 @@ const { t } = useI18n();
 </template>
 ```
 
+## 🌐 API 请求
+
+### 核心特性
+
+- ✅ **基于 Axios** - 自动重试、超时控制（30s）
+- ✅ **统一拦截** - 请求/响应自动处理
+- ✅ **错误处理** - 业务错误码、网络错误统一处理
+- ✅ **灵活配置** - 请求级别配置覆盖
+- ✅ **类型安全** - 完整 TypeScript 支持
+- ✅ **预留扩展** - 支持 Bridge 集成（阶段二）
+
+### 基础使用
+
+```typescript
+import { http } from "@/services/request";
+
+// GET 请求
+const data = await http.get<UserInfo>("/user/123");
+
+// POST 请求
+await http.post("/user/update", { name: "John" });
+
+// PUT 请求
+await http.put("/user/123", { status: "active" });
+
+// DELETE 请求
+await http.delete("/user/123");
+```
+
+### 高级配置
+
+```typescript
+import type { RequestConfig } from "@/utils/request/types";
+
+// 静默请求（不显示错误 Toast）
+const data = await http.get("/data", {
+  showErrorToast: false,
+} as RequestConfig);
+
+// 错误码白名单（忽略特定错误码的 Toast）
+const result = await http.post("/action", data, {
+  errorCodeWhitelist: [404, 1001],
+} as RequestConfig);
+
+// 自定义重试配置
+const critical = await http.get("/critical", {
+  "axios-retry": {
+    retries: 5,
+    retryDelay: 2000,
+  },
+} as RequestConfig);
+```
+
+### 页面 API 定义
+
+在 `src/page/{pageName}/api/index.ts` 中定义：
+
+```typescript
+import { http } from "@/services/request";
+
+export interface UserInfo {
+  id: number;
+  name: string;
+  avatar: string;
+}
+
+export const getUserInfo = (userId: number) => {
+  return http.get<UserInfo>(`/user/${userId}`);
+};
+
+export const updateUserInfo = (data: Partial<UserInfo>) => {
+  return http.post<void>("/user/update", data);
+};
+```
+
+### 环境配置
+
+在 `.env.*` 文件中配置：
+
+```env
+# API 配置
+VITE_API_BASE_URL=https://api.example.com
+VITE_API_TIMEOUT=30000
+```
+
+### 错误处理
+
+业务错误自动处理，特殊错误码可自定义：
+
+```typescript
+// src/utils/request/errorHandler.ts
+if (code === 401) {
+  console.warn("[Request] Unauthorized");
+  // 实现 token 刷新或跳转登录
+}
+```
+
 ## 🛠️ 开发工具
 
 ### 开发工具面板
 
-开发模式下，页面右下角（RTL 为左下角）显示工具按钮：
+开发/测试环境下，页面右下角（RTL 为左下角）显示工具按钮：
 
 - **语言切换** - 实时切换应用语言
 - **Eruda 调试** - 移动端调试工具，按需加载
@@ -153,8 +250,8 @@ const { t } = useI18n();
 
 访问 http://localhost:5173 可以查看所有页面列表：
 
-- 按模块分组
-- 支持搜索
+- 按首字母分组
+- 简洁清晰的卡片布局
 - 点击直接访问
 
 ## 📱 rem 适配

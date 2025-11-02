@@ -34,4 +34,3 @@ export const request = <T = any>(config: AxiosRequestConfig): Promise<T> => {
 }
 
 export default instance
-

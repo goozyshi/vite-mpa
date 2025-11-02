@@ -40,4 +40,3 @@ export const RTL_LOCALES: LangType[] = ['ar']
 export function isRTLLocale(locale: LangType): boolean {
   return RTL_LOCALES.includes(locale)
 }
-

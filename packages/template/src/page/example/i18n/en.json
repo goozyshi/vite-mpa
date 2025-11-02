@@ -1,5 +1,6 @@
 {
   "example": {
+    "button1": "Click Button 1",
     "title": "Example Page",
     "description": "This is an example description",
     "button": "Click Button"

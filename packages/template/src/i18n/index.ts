@@ -9,9 +9,7 @@ export const commonI18n = {
 
 export type PageI18nConfig = Record<LangType, () => Promise<any>>
 
-export async function loadMessages(
-  pageI18n: PageI18nConfig
-): Promise<Record<LangType, any>> {
+export async function loadMessages(pageI18n: PageI18nConfig): Promise<Record<LangType, any>> {
   const messages: Record<LangType, any> = {} as any
 
   await Promise.all(
@@ -39,4 +37,3 @@ export async function loadMessages(
 
   return messages
 }
-

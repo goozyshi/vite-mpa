@@ -230,6 +230,25 @@ export default createRouter({
 }
 `
   )
+
+  // 创建 API 目录
+  await fse.ensureDir(path.join(targetDir, 'api'))
+
+  await fse.writeFile(
+    path.join(targetDir, 'api/index.ts'),
+    `import { http } from '@/services/request'
+import type { RequestConfig } from '@/utils/request/types'
+
+/**
+ * ${config.pageName} 页面 API
+ */
+
+// 示例 API
+export const getExampleData = () => {
+  return http.get<any>('/example/data')
+}
+`
+  )
 }
 
 genPage().catch(console.error)
