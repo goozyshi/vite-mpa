@@ -1,0 +1,22 @@
+/**
+ * rem适配 - 基于750px设计稿
+ * 计算规则：设计稿px / 100 = rem值
+ * 示例：750px = 7.5rem, 100px = 1rem, 28px = 0.28rem
+ */
+html {
+  font-size: 13.3333vw !important; /* 100vw / 7.5 */
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+@media screen and (min-width: 750px) {
+  html {
+    font-size: 100px !important;
+  }
+}
+
+body {
+  font-size: 0.28rem;
+  line-height: 1.5;
+}
+

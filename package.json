@@ -1,0 +1,26 @@
+{
+  "name": "vite-mpa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "基于Vite5构建的Vue3 + TS的MPA模板项目",
+  "keywords": [
+    "vite",
+    "vue3",
+    "mpa",
+    "typescript",
+    "template"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter vite-mpa-template dev",
+    "build": "pnpm --filter vite-mpa-template build",
+    "build:test": "pnpm --filter vite-mpa-template build:test",
+    "cli:dev": "pnpm --filter create-vite-mpa dev",
+    "cli:build": "pnpm --filter create-vite-mpa build"
+  }
+}

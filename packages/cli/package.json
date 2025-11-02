@@ -1,0 +1,49 @@
+{
+  "name": "create-vite-mpa",
+  "version": "1.0.0",
+  "description": "CLI tool for creating Vite MPA projects",
+  "type": "module",
+  "bin": {
+    "create-vite-mpa": "./bin/index.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "keywords": [
+    "vite",
+    "mpa",
+    "cli",
+    "vue3",
+    "typescript",
+    "scaffold"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vite-mpa"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/vite-mpa/issues"
+  },
+  "homepage": "https://github.com/yourusername/vite-mpa#readme",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "fs-extra": "^11.2.0",
+    "minimist": "^1.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/prompts": "^2.4.9",
+    "@types/fs-extra": "^11.0.4",
+    "@types/minimist": "^1.2.5",
+    "typescript": "^5.3.3"
+  }
+}
