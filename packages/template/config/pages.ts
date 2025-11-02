@@ -11,23 +11,19 @@
  * // 构建所有页面
  * export const buildPages = [/^.*$/]
  *
- * // 只构建 example
+ * // 只构建 example 一级页面
  * export const buildPages = [/^example$/]
  *
+ * // 只构建 activity/2024 二级页面
+ * export const buildPages = [/^activity\/2024$/]
+ *
+ * // 构建 activity 下所有二级页面（使用前缀匹配）
+ * export const buildPages = [/^activity\//]
+ *
  * // 构建多个指定页面
- * export const buildPages = [/^example$/, /^test-page$/]
+ * export const buildPages = [/^example$/, /^activity\/2024$/, /^user\/profile$/]
  */
-export const buildPages: RegExp[] = [
-  // 默认：不构建任何页面
-  // 使用时请取消注释以下某一行：
-  // 构建所有页面
-  /^.*$/,
-  // 只构建 example 页面
-  // /^example$/,
-  // 构建多个指定页面
-  // /^example$/,
-  // /^test-page$/,
-]
+export const buildPages: RegExp[] = []
 
 /**
  * 检查页面是否应该被构建

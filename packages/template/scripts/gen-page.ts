@@ -8,40 +8,49 @@ import ora from 'ora'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 interface PageConfig {
-  module: string
   pageName: string
   fullPath: string
+  isSubPage: boolean
+  parentDir?: string
+  subPageName?: string
 }
 
 async function genPage() {
   console.log(chalk.blue('🎨 Generate New Page\n'))
+  console.log(chalk.gray('提示: 输入页面路径'))
+  console.log(chalk.gray('  - 一级页面: activity'))
+  console.log(chalk.gray('  - 二级页面: activity/2024\n'))
 
-  const result = await prompts([
-    {
-      type: 'text',
-      name: 'module',
-      message: 'Module name (e.g., activity, user):',
-      initial: 'example',
-      validate: (value) => (value ? true : 'Module name is required'),
+  const result = await prompts({
+    type: 'text',
+    name: 'pagePath',
+    message: 'Page path:',
+    initial: 'demo',
+    validate: (value) => {
+      if (!value) return 'Page path is required'
+      // 只支持一级或二级，不支持更深层级
+      const levels = value.split('/').filter((p) => p)
+      if (levels.length > 2) {
+        return 'Only supports 1 or 2 levels (e.g., activity or activity/2024)'
+      }
+      return true
     },
-    {
-      type: 'text',
-      name: 'pageName',
-      message: 'Page name (e.g., home, profile):',
-      initial: 'demo',
-      validate: (value) => (value ? true : 'Page name is required'),
-    },
-  ])
+  })
 
-  if (!result.module || !result.pageName) {
+  if (!result.pagePath) {
     console.log(chalk.red('✖ Cancelled'))
     process.exit(1)
   }
 
+  const pathParts = result.pagePath.split('/').filter((p) => p)
+  const isSubPage = pathParts.length === 2
+
   const config: PageConfig = {
-    module: result.module,
-    pageName: result.pageName,
-    fullPath: `${result.module}/${result.pageName}`,
+    pageName: pathParts[pathParts.length - 1],
+    fullPath: result.pagePath,
+    isSubPage,
+    parentDir: isSubPage ? pathParts[0] : undefined,
+    subPageName: isSubPage ? pathParts[1] : undefined,
   }
 
   const targetDir = path.resolve(__dirname, `../src/page/${config.fullPath}`)
@@ -245,7 +254,7 @@ import type { RequestConfig } from '@/utils/request/types'
 
 // 示例 API
 export const getExampleData = () => {
-  return http.get<any>('/example/data')
+  return http.get<any>('/${config.pageName}/data')
 }
 `
   )

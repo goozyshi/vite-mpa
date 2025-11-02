@@ -1,4 +1,4 @@
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watchEffect, type Ref, type ComputedRef } from 'vue'
 import { createI18n } from 'vue-i18n'
 import type { App } from 'vue'
 import { loadMessages, type PageI18nConfig } from '@/i18n'
@@ -41,21 +41,36 @@ function getInitialLanguage(): string {
   return DEFAULT_LOCALE
 }
 
-const language = ref<string>(getInitialLanguage())
+// 懒初始化响应式状态
+let language: Ref<string>
+let lang: ComputedRef<LangType>
+let isRTL: ComputedRef<boolean>
+let initialized = false
 
-const lang = computed<LangType>(() => {
-  const lowerLang = language.value?.toLowerCase() || ''
-  if (lowerLang.indexOf('zh') > -1) return 'zh'
-  if (lowerLang.indexOf('ar') > -1) return 'ar'
-  if (lowerLang.indexOf('en') > -1) return 'en'
-  return DEFAULT_LOCALE
-})
+function initReactiveState() {
+  if (initialized) return
 
-const isRTL = computed(() => isRTLLocale(lang.value))
+  language = ref<string>(getInitialLanguage())
+
+  lang = computed<LangType>(() => {
+    const lowerLang = language.value?.toLowerCase() || ''
+    if (lowerLang.indexOf('zh') > -1) return 'zh'
+    if (lowerLang.indexOf('ar') > -1) return 'ar'
+    if (lowerLang.indexOf('en') > -1) return 'en'
+    return DEFAULT_LOCALE
+  })
+
+  isRTL = computed(() => isRTLLocale(lang.value))
+
+  initialized = true
+}
 
 let i18n: ReturnType<typeof createI18n>
 
 export function useLang() {
+  // 确保响应式状态已初始化
+  initReactiveState()
+
   const setupI18n = async (app: App, pageI18n: PageI18nConfig) => {
     const messages = await loadMessages(pageI18n)
 

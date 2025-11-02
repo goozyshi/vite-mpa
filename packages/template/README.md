@@ -51,7 +51,29 @@ pnpm build:test
 pnpm gen:page
 ```
 
-按照提示输入模块名和页面名，自动生成页面结构
+按照提示输入页面路径，自动生成页面结构
+
+**支持两种结构**：
+
+1. **一级页面**（独立页面）
+   - 输入：`activity`
+   - 创建：`src/page/activity/index.html`
+   - 访问：`/src/page/activity/index.html`
+
+2. **二级页面**（归档在一级目录下）
+   - 输入：`activity/2024`
+   - 创建：`src/page/activity/2024/index.html`
+   - 访问：`/src/page/activity/2024/index.html`
+   - 注意：一级目录 `activity/` 仅作为归档文件夹，不包含 index.html
+
+**示例**：
+
+```bash
+pnpm gen:page
+✔ Page path: activity        # 创建一级页面
+✔ Page path: activity/2024   # 创建二级页面
+✔ Page path: 2023            # 创建一级页面
+```
 
 ## 项目结构
 
@@ -84,12 +106,21 @@ packages/template/
 │   │       ├── en.json
 │   │       └── ar.json
 │   ├── page/               # 页面（MPA入口）
-│   │   └── example/        # 示例页面
-│   │       ├── i18n/       # 页面级翻译
-│   │       ├── pages/      # 页面组件
-│   │       ├── router/     # 页面路由
-│   │       ├── index.html  # HTML入口
-│   │       └── main.ts     # JS入口
+│   │   ├── example/        # 一级页面
+│   │   │   ├── i18n/       # 页面级翻译
+│   │   │   ├── pages/      # 页面组件
+│   │   │   ├── router/     # 页面路由
+│   │   │   ├── api/        # 页面API
+│   │   │   ├── index.html  # HTML入口
+│   │   │   └── main.ts     # JS入口
+│   │   └── activity/       # 归档目录（仅用于分组）
+│   │       └── 2024/       # 二级页面
+│   │           ├── i18n/
+│   │           ├── pages/
+│   │           ├── router/
+│   │           ├── api/
+│   │           ├── index.html
+│   │           └── main.ts
 │   ├── plugins/            # 插件
 │   ├── stores/             # Pinia stores
 │   ├── types/              # TypeScript类型

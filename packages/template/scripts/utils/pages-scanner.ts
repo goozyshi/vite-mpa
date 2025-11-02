@@ -9,12 +9,19 @@ export interface PageEntry {
 }
 
 export async function scanPages(): Promise<PageEntry[]> {
-  const htmlFiles = await glob('src/page/*/index.html', {
+  // 扫描一级页面: src/page/*/index.html
+  const topLevelFiles = await glob('src/page/*/index.html', {
     cwd: process.cwd(),
     absolute: false,
   })
 
-  return htmlFiles.map((file) => {
+  // 扫描二级页面: src/page/*/*/index.html
+  const subLevelFiles = await glob('src/page/*/*/index.html', {
+    cwd: process.cwd(),
+    absolute: false,
+  })
+
+  const topLevelPages = topLevelFiles.map((file) => {
     const parts = file.split('/').slice(2)
     const pageName = parts[0]
 
@@ -25,6 +32,21 @@ export async function scanPages(): Promise<PageEntry[]> {
       fullPath: path.resolve(process.cwd(), file),
     }
   })
+
+  const subLevelPages = subLevelFiles.map((file) => {
+    const parts = file.split('/').slice(2)
+    const module = parts[0]
+    const pageName = parts[1]
+
+    return {
+      name: `${module}/${pageName}`,
+      path: `/${file}`,
+      module,
+      fullPath: path.resolve(process.cwd(), file),
+    }
+  })
+
+  return [...topLevelPages, ...subLevelPages]
 }
 
 export function groupPages(pages: PageEntry[]) {

@@ -56,11 +56,14 @@ export function createBuildConfig(pageName: string, pageDir: string): UserConfig
             if (id.includes('node_modules/vant')) {
               return 'vant'
             }
-            // 合并 Vue 生态
+            // 合并 Vue 生态（包含 vue-i18n，确保依赖顺序正确）
             if (
               id.includes('node_modules/vue') ||
               id.includes('node_modules/pinia') ||
-              id.includes('node_modules/vue-router')
+              id.includes('node_modules/vue-router') ||
+              id.includes('node_modules/vue-i18n') ||
+              id.includes('node_modules/@vue/') ||
+              id.includes('node_modules/@intlify/')
             ) {
               return 'vue-vendor'
             }
