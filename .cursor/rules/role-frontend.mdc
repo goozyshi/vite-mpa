@@ -39,3 +39,4 @@ alwaysApply: false
 
     Key Conventions
     - Optimize Web Vitals (LCP, CLS, FID) using tools like Lighthouse or WebPageTest.
+    - The generated code only retains core comments and reduces the creation of unnecessary markdown file explanations.

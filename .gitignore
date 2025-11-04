@@ -1,3 +1,4 @@
+m-project
 # Dependencies
 node_modules
 .pnpm-store
@@ -29,7 +30,7 @@ Thumbs.db
 # Env (仅忽略local文件)
 .env.local
 .env.*.local
-!.env
+!.env.example
 !.env.development
 !.env.test
 !.env.production
