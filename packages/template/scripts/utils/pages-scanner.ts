@@ -1,4 +1,4 @@
-import { glob } from 'glob'
+import fg from 'fast-glob'
 import path from 'path'
 
 export interface PageEntry {
@@ -10,13 +10,13 @@ export interface PageEntry {
 
 export async function scanPages(): Promise<PageEntry[]> {
   // 扫描一级页面: src/page/*/index.html
-  const topLevelFiles = await glob('src/page/*/index.html', {
+  const topLevelFiles = await fg('src/page/*/index.html', {
     cwd: process.cwd(),
     absolute: false,
   })
 
   // 扫描二级页面: src/page/*/*/index.html
-  const subLevelFiles = await glob('src/page/*/*/index.html', {
+  const subLevelFiles = await fg('src/page/*/*/index.html', {
     cwd: process.cwd(),
     absolute: false,
   })

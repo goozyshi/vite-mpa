@@ -20,6 +20,24 @@
         <Button type="success" block>
           {{ t('common.submit') }}
         </Button>
+        <Button type="success" block>
+          {{ t('zh_去完成') }}
+        </Button>
+        <Button type="success" block>
+          {{ t('zh_去完成') }}
+        </Button>
+        <Button type="success" block>
+          {{ t('zh_去完成') }}
+        </Button>
+        <Button type="success" block>
+          {{ t('zh_去完2成') }}
+        </Button>
+        <Button type="success" block>
+          {{ t('zh_去完成3') }}
+        </Button>
+        <Button type="success" block>
+          {{ t('zh_去完成2') }}
+        </Button>
       </div>
 
       <Divider>Axios Request Test</Divider>

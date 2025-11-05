@@ -1,10 +1,11 @@
 import { defineConfig, mergeConfig } from 'vite'
 import baseConfig from './vite.base'
 import pagesPlugin from '../scripts/preview/pages-plugin'
+import { i18nDevToolsPlugin } from '../scripts/i18n/plugin'
 
 export default defineConfig(async () => {
   return mergeConfig(baseConfig, {
-    plugins: [pagesPlugin()],
+    plugins: [pagesPlugin(), i18nDevToolsPlugin()],
 
     server: {
       host: true,

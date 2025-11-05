@@ -12,7 +12,9 @@
     "lint": "eslint . --ext .vue,.js,.ts,.jsx,.tsx",
     "lint:fix": "eslint . --ext .vue,.js,.ts,.jsx,.tsx --fix",
     "format": "prettier --write \"src/**/*.{js,ts,vue,json,css,scss}\"",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "lang:add": "tsx scripts/i18n/cli/add-lang.ts",
+    "lang:scan": "tsx scripts/i18n/cli/scan.ts"
   },
   "dependencies": {
     "vue": "^3.5.13",
@@ -40,7 +42,9 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-vue": "^9.31.0",
-    "glob": "^11.0.0",
+    "fast-glob": "^3.3.2",
+    "papaparse": "^5.4.1",
+    "@types/papaparse": "^5.3.14",
     "postcss": "^8.4.49",
     "postcss-rtlcss": "^5.5.1",
     "prettier": "^3.4.2",
