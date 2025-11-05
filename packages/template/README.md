@@ -14,6 +14,7 @@
 - 🗂️ **Pinia** - Vue 3 状态管理
 - 🛣️ **Vue Router 4** - 路由管理
 - 📦 **pnpm** - 快速、节省磁盘空间的包管理器
+- 🐛 **Sentry** - 错误监控和性能追踪
 
 ## 快速开始
 
@@ -308,6 +309,263 @@ if (code === 401) {
 - 阿拉伯语（ar）自动应用 RTL 布局
 - 其他语言使用 LTR 布局
 - CSS 属性自动镜像翻转（left/right、padding/margin 等）
+
+### RTL 快捷类
+
+项目提供了常用的 RTL 快捷类（`src/assets/css/rtl.css`）：
+
+#### `.flip-icon-rtl` - 方向性图标翻转
+
+```vue
+<template>
+  <!-- 箭头图标在 RTL 下自动镜像 -->
+  <img src="arrow-right.svg" class="flip-icon-rtl" />
+</template>
+```
+
+#### `.flip-reserve-ltr` - 保留 LTR 布局
+
+```vue
+<template>
+  <!-- 对于复杂组件（如 Vant），保留 LTR 布局 -->
+  <van-picker class="flip-reserve-ltr" />
+</template>
+```
+
+#### `.flip-text-rtl` - 拼接文案翻转
+
+```vue
+<template>
+  <!-- 数字+文字混合显示，保持正确顺序 -->
+  <span class="flip-text-rtl">+99 积分</span>
+</template>
+```
+
+#### `.flip-bg-rtl` - 纯背景翻转
+
+```vue
+<template>
+  <!-- 只翻转背景图片，不翻转内容 -->
+  <div class="banner" style="position: relative">
+    <img src="bg.png" class="flip-bg-rtl" />
+    <div class="content">内容</div>
+  </div>
+</template>
+```
+
+## 布局工具类
+
+项目提供了移动端常用的 Flex 布局工具类（`src/assets/css/layout.css`）：
+
+### 定高滚动布局
+
+```vue
+<template>
+  <div class="flex-container safe-bottom">
+    <div class="header">固定头部</div>
+    <div class="scroll-container">
+      <!-- 可滚动内容 -->
+    </div>
+    <div class="footer">固定底部</div>
+  </div>
+</template>
+```
+
+### Flex 快捷类
+
+```vue
+<template>
+  <!-- 水平居中 -->
+  <div class="flex-center">内容</div>
+
+  <!-- 水平分布 -->
+  <div class="flex-between">
+    <span>左侧</span>
+    <span>右侧</span>
+  </div>
+
+  <!-- 垂直布局 -->
+  <div class="flex-col">
+    <div>项目1</div>
+    <div>项目2</div>
+  </div>
+
+  <!-- 垂直居中 -->
+  <div class="flex-col-center">内容</div>
+
+  <!-- 自动填充 -->
+  <div class="flex-1">填充空间</div>
+</template>
+```
+
+### 安全区适配
+
+```vue
+<template>
+  <!-- 底部安全区（适配 iPhone 刘海屏） -->
+  <div class="flex-container safe-bottom">
+    <div class="scroll-container">内容</div>
+    <div class="footer">底部按钮</div>
+  </div>
+
+  <!-- 顶部安全区 -->
+  <div class="flex-container safe-top">
+    <div class="header">顶部导航</div>
+    <div class="scroll-container">内容</div>
+  </div>
+</template>
+```
+
+### 滚动效果
+
+```vue
+<template>
+  <!-- 底部滚动阴影（提示有更多内容） -->
+  <div class="scroll-container scroll-shadow">
+    <!-- 长列表内容 -->
+  </div>
+</template>
+```
+
+## Sentry 错误监控
+
+项目集成了 Sentry 错误监控，自动捕获并上报错误。
+
+### 配置
+
+在 `.env.*` 文件中配置：
+
+```env
+# Sentry 配置
+VITE_SENTRY_DSN=https://your-dsn@sentry.io/project-id
+VITE_SENTRY_ENABLED=true
+
+# Source Map 上传（生产环境，可选）
+SENTRY_ORG=your-org
+SENTRY_PROJECT=vite-mpa
+SENTRY_AUTH_TOKEN=your-auth-token
+```
+
+### 特性
+
+- ✅ **延迟加载 + 零错误丢失** - SDK 延迟加载（优化首屏），错误缓冲确保不丢失任何错误
+- ✅ **完整错误捕获** - 捕获全局 JS 错误、Promise 错误、Vue 内部错误
+- ✅ **轻量级** - 仅增加 1KB（错误缓冲队列），Sentry SDK 延迟加载
+- ✅ **环境可控** - 开发/测试/生产环境通过 env 配置控制
+- ✅ **自动上下文** - 自动收集用户、设备、网络信息
+- ✅ **性能监控** - 集成 Browser Tracing
+- ✅ **Console 捕获** - 自动捕获 `console.error`
+- ✅ **HTTP 错误捕获** - 自动捕获 API 请求错误
+
+### 工作原理
+
+```
+1. 模块加载时立即初始化错误缓冲队列（1KB）
+   ↓
+2. 监听全局错误、Promise 错误、Vue 错误
+   ↓
+3. 错误暂存到缓冲队列
+   ↓
+4. 浏览器空闲时延迟加载 Sentry SDK（~150KB）
+   ↓
+5. SDK 加载完成后批量上报缓冲的错误
+   ↓
+6. 后续错误由 Sentry 直接处理
+```
+
+**关键代码**：
+
+```typescript
+// main.ts - 简洁清晰，无需关心错误缓冲细节
+import { createApp } from 'vue'
+import setupPlugins from '@/plugins'
+
+const app = createApp(App)
+
+// setupPlugins 内部自动处理错误捕获和 Sentry 初始化
+setupPlugins(app, router)
+```
+
+```typescript
+// src/plugins/index.ts - 插件统一管理
+import { setupVueErrorCapture } from '@/utils/error-buffer'
+import { initSentry } from './sentry/index'
+
+export default function setupPlugins(app: App, router?: Router) {
+  // 1️⃣ 设置 Vue 错误捕获（全局错误已在模块加载时自动监听）
+  setupVueErrorCapture(app)
+
+  // 2️⃣ Sentry 初始化（会消费错误缓冲）
+  initSentry(app, router)
+
+  // 3️⃣ 其他插件
+  app.use(pinia)
+}
+```
+
+### 手动捕获错误
+
+```typescript
+import { captureError, captureMessage } from '@/plugins/sentry'
+
+// 捕获错误
+try {
+  // 业务逻辑
+} catch (error) {
+  captureError(error as Error, {
+    context: '自定义上下文',
+  })
+}
+
+// 发送消息
+captureMessage('关键操作完成', 'info')
+```
+
+### 架构说明
+
+```
+src/
+├── utils/
+│   └── error-buffer.ts         # 通用错误缓冲（与监控工具解耦）
+│       ├── setupVueErrorCapture()   # 设置 Vue 错误捕获
+│       ├── flushErrorBuffer()       # 获取并清空缓冲（供监控工具使用）
+│       └── getErrorBufferStats()    # 获取统计信息（调试用）
+└── plugins/
+    ├── sentry/
+    │   ├── index.ts            # Sentry SDK 初始化
+    │   └── context.ts          # 用户上下文设置
+    └── index.ts                # 插件统一入口
+```
+
+**设计思想**：
+
+- ✅ **全局错误自动监听**：`error-buffer.ts` 模块加载时自动设置全局 JS 和 Promise 错误监听
+- ✅ **Vue 错误显式设置**：通过 `setupVueErrorCapture(app)` 在 `setupPlugins` 中设置
+- ✅ **main.ts 零感知**：业务代码无需导入 `error-buffer`，避免"未使用"的误解
+- ✅ **职责分离清晰**：错误缓冲与监控工具解耦，可被任何工具使用（Sentry、Bugsnag、自定义上报）
+- ✅ **易于维护扩展**：插件化设计，新增监控工具只需调用 `flushErrorBuffer()`
+
+**API 设计**：
+
+```typescript
+// 开发者无需关心，setupPlugins 内部自动调用
+setupVueErrorCapture(app) // 设置 Vue 错误捕获
+
+// 监控工具使用
+flushErrorBuffer() // 获取并清空缓冲的错误
+
+// 调试使用
+getErrorBufferStats() // { size: 0 }
+```
+
+### Source Map 上传（可选）
+
+如需上传 Source Map 到 Sentry（用于错误堆栈还原），需要：
+
+1. 在 `.env.production` 中配置 Sentry 令牌
+2. 在 `vite.build.ts` 中启用 `@sentry/vite-plugin`
+
+**注意**：开发环境不启用 Sentry，避免干扰调试
 
 ## 代码规范
 

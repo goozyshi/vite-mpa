@@ -1,0 +1,115 @@
+/**
+ * 快速布局工具类（Flex 相关）
+ * 解决移动端常见布局问题
+ */
+
+/* ========== Flex 容器布局 ========== */
+
+/* 定高滚动布局（支持安全区适配） */
+.flex-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 滚动内容区域 */
+.flex-container .scroll-container {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  flex-direction: column;
+}
+
+.flex-container .scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========== 安全区适配 ========== */
+
+/* 底部安全区（适配 iPhone 刘海屏等） */
+.safe-bottom > :last-child {
+  padding-bottom: 0.68rem !important;
+}
+
+/* 顶部安全区（适配状态栏） */
+.flex-container.safe-top {
+  padding-top: 0.88rem !important;
+}
+
+/* ========== 滚动效果 ========== */
+
+/* 底部滚动阴影（视觉提示有更多内容） */
+.scroll-shadow::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 9;
+  width: 100%;
+  height: 1.28rem;
+  background: linear-gradient(180deg, rgba(28, 26, 30, 0) 0%, #1c1a1e 100%);
+  pointer-events: none;
+}
+
+/* ========== Flex 快捷类 ========== */
+
+/* 水平居中 */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 水平分布 */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 垂直布局 */
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 垂直居中 */
+.flex-col-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 自动填充空间 */
+.flex-1 {
+  flex: 1;
+}
+
+/* ========== 层级隔离 ========== */
+
+/* 用于管理复杂层级关系，避免 z-index 冲突 */
+.isolate-z-0 {
+  isolation: isolate;
+  z-index: 0;
+}
+
+.isolate-z-1 {
+  isolation: isolate;
+  z-index: 1;
+}
+
+.isolate-z-2 {
+  isolation: isolate;
+  z-index: 2;
+}
+
+.isolate-z-9 {
+  isolation: isolate;
+  z-index: 9;
+}

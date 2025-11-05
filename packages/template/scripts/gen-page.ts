@@ -117,7 +117,8 @@ if (import.meta.env.DEV) {
 
 const app = createApp(App)
 
-setupPlugins(app)
+// 统一插件初始化（包含错误捕获、Sentry 等）
+setupPlugins(app, router)
 
 const { setupI18n } = useLang()
 await setupI18n(app, i18n)

@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n, useLang } from '@/composables'
 import { Button, CellGroup, Cell, Divider, showToast } from 'vant'
 import 'vant/lib/index.css'
@@ -101,6 +101,25 @@ const handleTestWhitelist = async () => {
     showToast('白名单错误（不显示 Toast）')
   }
 }
+// 测试全局错误
+const testGlobalError = () => {
+  throw new Error('Test global error')
+}
+
+// 测试 Promise 错误
+const testPromiseError = () => {
+  Promise.reject('Test promise error')
+}
+
+// 测试 Vue 内部错误
+const testVueError = () => {
+  throw new Error('Test Vue component error')
+}
+onMounted(() => {
+  testGlobalError()
+  testPromiseError()
+  testVueError()
+})
 </script>
 
 <style lang="scss" scoped>

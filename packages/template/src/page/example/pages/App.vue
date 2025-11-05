@@ -21,4 +21,6 @@ import { DevToolsPanel } from '@/components'
 <style>
 @import '@/assets/css/reset.css';
 @import '@/assets/css/rem.scss';
+@import '@/assets/css/rtl.css';
+@import '@/assets/css/layout.css';
 </style>
