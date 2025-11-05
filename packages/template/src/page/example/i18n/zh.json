@@ -1,8 +1,10 @@
 {
   "example": {
-    "title": "示例页面",
+    "button": "点击按钮",
     "description": "这是一个示例描述",
-    "button": "点击按钮"
-  }
+    "title": "示例页面",
+    "useless": "无用"
+  },
+  "useless": "无用1",
+  "useless2": "无用 2"
 }
-

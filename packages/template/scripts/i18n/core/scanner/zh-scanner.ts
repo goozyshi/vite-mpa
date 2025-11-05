@@ -107,7 +107,8 @@ export class ZhScanner {
 
     // 匹配 t("zh_xxx") 或 $t('zh_xxx') 或 t(`zh_xxx`)
     // 支持多行和参数
-    const regex = /(?:[$]?t)\s*\(\s*([`'"])zh_([^`'"]+)\1(?:\s*,\s*[^\)]*?)?\s*\)/g
+    // [\s\S] 用于匹配任意字符（包括换行符）
+    const regex = /(?:[$]?t)\s*\(\s*([`'"])zh_([\s\S]*?)\1(?:\s*,\s*([\s\S]*?))?\s*\)/g
 
     let match
     while ((match = regex.exec(content)) !== null) {
@@ -164,4 +165,3 @@ export class ZhScanner {
     return `${prefix}${simplifiedText}`
   }
 }
-

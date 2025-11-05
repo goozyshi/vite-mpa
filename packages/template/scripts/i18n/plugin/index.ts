@@ -1,10 +1,13 @@
 import type { Plugin, ViteDevServer } from 'vite'
 import chalk from 'chalk'
+import path from 'path'
 import { ZhScanner } from '../core/scanner/zh-scanner'
 import { CSVMatcher } from '../core/matcher/csv-matcher'
 import { JSONUpdater, convertToUpdateTasks } from '../core/generator/json-updater'
 import { CodeReplacer, convertToReplaceTasks } from '../core/generator/code-replacer'
 import { defaultI18nConfig } from '../../../config/i18n.config'
+import { renderCleanupPage, getCleanupData, executeCleanup, parseBody } from './routes/cleanup'
+import { FileUtils } from '../core/utils/file-utils'
 
 /**
  * i18n 开发工具插件
@@ -80,6 +83,41 @@ export function i18nDevToolsPlugin(): Plugin {
           return
         }
 
+        // 清理工具界面
+        if (url === '/__i18n/cleanup') {
+          res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          const html = await renderCleanupPage(actualPort)
+          res.end(html)
+          return
+        }
+
+        // 清理工具数据
+        if (url === '/__i18n/cleanup/data') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          try {
+            const data = await getCleanupData()
+            res.end(JSON.stringify(data))
+          } catch (error: any) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: error.message }))
+          }
+          return
+        }
+
+        // 执行清理（POST）
+        if (url === '/__i18n/cleanup/exec' && req.method === 'POST') {
+          try {
+            const body = await parseBody(req)
+            const result = await executeCleanup(body.keys || [])
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify(result))
+          } catch (error: any) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: error.message }))
+          }
+          return
+        }
+
         next()
       })
     },
@@ -101,7 +139,11 @@ async function performQuickScan(port: number) {
       console.log('✅ 未发现待处理的 zh_ 占位符')
     } else {
       console.log(`\n⚠️  发现 ${quickScan.count} 个 zh_ 占位符待处理`)
-      console.log('   涉及文件: ' + quickScan.files.slice(0, 3).join(', ') + (quickScan.files.length > 3 ? '...' : ''))
+      console.log(
+        '   涉及文件: ' +
+          quickScan.files.slice(0, 3).join(', ') +
+          (quickScan.files.length > 3 ? '...' : '')
+      )
       console.log(`\n   👉 访问工具面板: ${chalk.cyan(`http://localhost:${port}/__i18n`)}`)
       console.log(`   快速操作: ${chalk.cyan(`http://localhost:${port}/__i18n/import`)}`)
     }
@@ -151,10 +193,86 @@ async function handleImportData() {
 }
 
 /**
+ * 验证翻译完整性
+ * 检查每个key是否所有现有语种都有翻译
+ */
+async function validateTranslations(
+  matched: any[],
+  srcPath: string
+): Promise<{
+  valid: boolean
+  details: Array<{ page: string; key: string; missingLangs: string[] }>
+}> {
+  const details: Array<{ page: string; key: string; missingLangs: string[] }> = []
+
+  // 按页面分组
+  const groupedByPage = matched.reduce(
+    (acc, item) => {
+      if (!acc[item.pageName]) {
+        acc[item.pageName] = []
+      }
+      acc[item.pageName].push(item)
+      return acc
+    },
+    {} as Record<string, any[]>
+  )
+
+  // 检查每个页面
+  for (const [pageName, items] of Object.entries(groupedByPage)) {
+    const pagePath = path.join(srcPath, pageName)
+    const i18nDir = path.join(pagePath, 'i18n')
+
+    // 获取现有语种
+    if (!(await FileUtils.exists(i18nDir))) {
+      continue
+    }
+
+    const files = await FileUtils.scanFiles(['*.json'], {
+      cwd: i18nDir,
+      absolute: false,
+    })
+
+    const existingLangs = files.map((file) => path.basename(file, '.json')).sort()
+
+    // 检查每个item
+    for (const item of items) {
+      const providedLangs = Object.keys(item.translations)
+      const missingLangs = existingLangs.filter((lang) => !providedLangs.includes(lang))
+
+      if (missingLangs.length > 0) {
+        details.push({
+          page: pageName,
+          key: item.key,
+          missingLangs,
+        })
+      }
+    }
+  }
+
+  return {
+    valid: details.length === 0,
+    details,
+  }
+}
+
+/**
  * 执行导入
  */
 async function handleImportExec(data: any) {
   const { matched } = data
+
+  // ⚠️ 执行前检查：检测缺失翻译
+  const validation = await validateTranslations(matched, defaultI18nConfig.srcPath)
+
+  if (!validation.valid) {
+    return {
+      success: false,
+      blocked: true,
+      reason: 'missing_translations',
+      message: '检测到缺失翻译，导入已被阻止',
+      missingDetails: validation.details,
+    }
+  }
 
   // 更新 JSON
   const updater = new JSONUpdater()
@@ -238,12 +356,12 @@ function renderDashboard(port: number): string {
         <p class="tool-desc">扫描代码中的 zh_ 占位符，从 CSV 匹配翻译并自动回填</p>
         <span class="badge">点击使用</span>
       </a>
-      <div class="tool-card" style="opacity: 0.6; cursor: not-allowed;">
-        <div class="tool-icon">🧹</div>
+      <a href="/__i18n/cleanup" class="tool-card">
+        <div class="tool-icon">🗑️</div>
         <h3 class="tool-title">清理工具</h3>
         <p class="tool-desc">检测并删除未使用的翻译 key</p>
-        <span class="badge" style="background: #fef3c7; color: #92400e;">开发中</span>
-      </div>
+        <span class="badge">点击使用</span>
+      </a>
       <div class="tool-card" style="opacity: 0.6; cursor: not-allowed;">
         <div class="tool-icon">📊</div>
         <h3 class="tool-title">统计面板</h3>
@@ -346,31 +464,49 @@ function renderImportReport(matchResult: any): string {
       </div>
     </div>
 
-    ${matchResult.matched.length > 0 ? `
+    ${
+      matchResult.matched.length > 0
+        ? `
     <div class="section">
       <h2>✅ 已匹配 (${matchResult.matched.length})</h2>
-      ${matchResult.matched.slice(0, 10).map((item: any) => `
+      ${matchResult.matched
+        .slice(0, 10)
+        .map(
+          (item: any) => `
         <div class="item">
           <div class="item-zh">${item.zhText}</div>
           <div class="item-key">→ ${item.key}</div>
           ${item.translations.en ? `<div class="item-en">en: ${item.translations.en}</div>` : ''}
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
       ${matchResult.matched.length > 10 ? `<p style="color: #6b7280; margin-top: 1rem;">... 还有 ${matchResult.matched.length - 10} 项</p>` : ''}
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
-    ${matchResult.unmatched.length > 0 ? `
+    ${
+      matchResult.unmatched.length > 0
+        ? `
     <div class="section">
       <h2>⚠️ 未匹配 (${matchResult.unmatched.length})</h2>
-      ${matchResult.unmatched.slice(0, 5).map((item: any) => `
+      ${matchResult.unmatched
+        .slice(0, 5)
+        .map(
+          (item: any) => `
         <div class="item">
           <div class="item-zh">${item.zhText}</div>
           <div class="item-en" style="font-size: 0.875rem;">${item.filePath}:${item.line}</div>
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div class="actions">
       <button class="btn-primary" onclick="executeImport()">确认导入 (${matchResult.matched.length} 项)</button>
@@ -403,8 +539,27 @@ function renderImportReport(matchResult: any): string {
             'Keys 添加: ' + result.keysAdded + ' 个\\n' +
             '代码替换: ' + result.replacements + ' 处')
           location.reload()
+        } else if (result.blocked && result.reason === 'missing_translations') {
+          // ⚠️ 缺失翻译被拦截
+          const details = result.missingDetails || []
+          let message = '🚫 导入已被阻止！\\n\\n'
+          message += '检测到 ' + details.length + ' 个 key 缺少翻译：\\n\\n'
+          
+          details.slice(0, 10).forEach((item) => {
+            message += '• ' + item.key + ' (' + item.page + ')\\n'
+            message += '  缺少: ' + item.missingLangs.join(', ') + '\\n'
+          })
+          
+          if (details.length > 10) {
+            message += '\\n... 还有 ' + (details.length - 10) + ' 个\\n'
+          }
+          
+          message += '\\n💡 请在 CSV 文件中补充缺失的翻译后重试！'
+          alert(message)
+          btn.disabled = false
+          btn.textContent = '确认导入'
         } else {
-          alert('❌ 导入失败: ' + result.error)
+          alert('❌ 导入失败: ' + (result.error || result.message))
           btn.disabled = false
           btn.textContent = '确认导入'
         }
@@ -418,4 +573,3 @@ function renderImportReport(matchResult: any): string {
 </body>
 </html>`
 }
-

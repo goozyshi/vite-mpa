@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-import minimist from "minimist";
+import arg from "arg";
 import prompts from "prompts";
 import chalk from "chalk";
 import { createProject } from "./create-project.js";
 import { showHelp } from "./utils/help.js";
 
-const argv = minimist(process.argv.slice(2));
+const argv = arg({
+  "--help": Boolean,
+  "-h": "--help",
+});
 
 async function init() {
   console.log(chalk.blue("\n🚀 Welcome to Vite MPA Generator\n"));
 
-  if (argv.help || argv.h) {
+  if (argv["--help"]) {
     showHelp();
     return;
   }

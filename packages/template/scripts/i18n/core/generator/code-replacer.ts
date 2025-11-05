@@ -61,9 +61,9 @@ export class CodeReplacer {
       // (['"`])  - 匹配引号并捕获
       // zh_xxx   - 匹配占位符
       // \2       - 匹配相同的引号
-      // ([^)]*)  - 匹配可能的参数
+      // ([\s\S]*?)  - 匹配可能的参数（支持多行）
       // \)       - 匹配结束括号
-      const pattern = new RegExp(`([$]?t\\s*\\()(['"\`])${escapedFrom}\\2([^)]*)\\)`, 'g')
+      const pattern = new RegExp(`([$]?t\\s*\\()(['"\`])${escapedFrom}\\2([\\s\\S]*?)\\)`, 'g')
 
       const newContent = content.replace(pattern, (match, prefix, quote, params) => {
         count++
@@ -114,4 +114,3 @@ export function convertToReplaceTasks(matched: MatchedTranslation[]): ReplaceTas
     replacements,
   }))
 }
-

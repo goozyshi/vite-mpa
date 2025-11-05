@@ -23,20 +23,14 @@
         <Button type="success" block>
           {{ t('zh_去完成') }}
         </Button>
+        <!-- <Button type="success" block>
+          {{ t('useless') }}
+        </Button> -->
         <Button type="success" block>
-          {{ t('zh_去完成') }}
-        </Button>
-        <Button type="success" block>
-          {{ t('zh_去完成') }}
-        </Button>
-        <Button type="success" block>
-          {{ t('zh_去完2成') }}
+          {{ t('zh_去完成2') }}
         </Button>
         <Button type="success" block>
           {{ t('zh_去完成3') }}
-        </Button>
-        <Button type="success" block>
-          {{ t('zh_去完成2') }}
         </Button>
       </div>
 
@@ -44,13 +38,9 @@
 
       <CellGroup title="请求测试（示例接口）">
         <Cell title="基础请求" label="测试基础请求" is-link @click="handleTestSuccess" />
-        <Cell title="失败请求" label="测试错误提示" is-link @click="handleTestFail" />
-        <Cell title="静默请求" label="不显示错误提示" is-link @click="handleTestSilent" />
-        <Cell title="白名单测试" label="忽略特定错误码" is-link @click="handleTestWhitelist" />
       </CellGroup>
 
       <Divider>System Info</Divider>
-
       <div class="info">
         <p>Environment: {{ env }}</p>
         <p>API Base: {{ apiBase }}</p>

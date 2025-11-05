@@ -35,9 +35,7 @@ export class PlaceholderProcessor {
     // 应用所有规则
     for (const rule of this.rules) {
       const pattern =
-        typeof rule.pattern === 'string'
-          ? new RegExp(rule.pattern, 'g')
-          : rule.pattern
+        typeof rule.pattern === 'string' ? new RegExp(rule.pattern, 'g') : rule.pattern
 
       if (typeof rule.replacer === 'string') {
         processedText = processedText.replace(pattern, rule.replacer)
@@ -50,9 +48,7 @@ export class PlaceholderProcessor {
     const namedPlaceholders = this.detectNamedPlaceholders(processedText)
 
     if (namedPlaceholders.length > 0) {
-      warnings.push(
-        `🔸 包含命名占位符: ${namedPlaceholders.join(', ')} - 需人工确认是否正确`
-      )
+      warnings.push(`🔸 包含命名占位符: ${namedPlaceholders.join(', ')} - 需人工确认是否正确`)
     }
 
     return {
@@ -145,4 +141,3 @@ export const defaultPlaceholderRules: PlaceholderRule[] = [
     description: "特殊字符转义: # -> {'#'}",
   },
 ]
-
