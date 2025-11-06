@@ -23,7 +23,7 @@
  * // 构建多个指定页面
  * export const buildPages = [/^example$/, /^activity\/2024$/, /^user\/profile$/]
  */
-export const buildPages: RegExp[] = [/^vip$/]
+export const buildPages: RegExp[] = [/example/]
 
 /**
  * 检查页面是否应该被构建

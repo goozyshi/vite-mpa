@@ -9,44 +9,39 @@ export interface PageEntry {
 }
 
 export async function scanPages(): Promise<PageEntry[]> {
-  // 扫描一级页面: src/page/*/index.html
-  const topLevelFiles = await fg('src/page/*/index.html', {
+  const files = await fg('src/page/**/index.html', {
     cwd: process.cwd(),
     absolute: false,
+    deep: 2,
+    onlyFiles: true,
   })
 
-  // 扫描二级页面: src/page/*/*/index.html
-  const subLevelFiles = await fg('src/page/*/*/index.html', {
-    cwd: process.cwd(),
-    absolute: false,
-  })
+  const pages: PageEntry[] = []
 
-  const topLevelPages = topLevelFiles.map((file) => {
+  for (const file of files) {
     const parts = file.split('/').slice(2)
-    const pageName = parts[0]
 
-    return {
-      name: pageName,
-      path: `/${file}`,
-      module: pageName,
-      fullPath: path.resolve(process.cwd(), file),
+    if (parts.length === 2) {
+      const pageName = parts[0]
+      pages.push({
+        name: pageName,
+        path: `/${file}`,
+        module: pageName,
+        fullPath: path.resolve(process.cwd(), file),
+      })
+    } else if (parts.length === 3) {
+      const module = parts[0]
+      const pageName = parts[1]
+      pages.push({
+        name: `${module}/${pageName}`,
+        path: `/${file}`,
+        module,
+        fullPath: path.resolve(process.cwd(), file),
+      })
     }
-  })
+  }
 
-  const subLevelPages = subLevelFiles.map((file) => {
-    const parts = file.split('/').slice(2)
-    const module = parts[0]
-    const pageName = parts[1]
-
-    return {
-      name: `${module}/${pageName}`,
-      path: `/${file}`,
-      module,
-      fullPath: path.resolve(process.cwd(), file),
-    }
-  })
-
-  return [...topLevelPages, ...subLevelPages]
+  return pages
 }
 
 export function groupPages(pages: PageEntry[]) {

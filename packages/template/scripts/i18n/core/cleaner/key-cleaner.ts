@@ -1,11 +1,7 @@
-/**
- * Key 清理工具
- * 扫描未使用的翻译 key 并支持删除
- */
-
 import path from 'path'
 import { FileUtils } from '../utils/file-utils'
 import { flattenJSON, unflattenJSON, removeKeys as removeKeysFromJSON } from '../utils/json-utils'
+import { shouldBuildPage } from '../../../../config/pages'
 
 /**
  * Key 使用信息
@@ -45,37 +41,33 @@ export class KeyCleaner {
     this.srcPath = path.resolve(process.cwd(), srcPath)
   }
 
-  /**
-   * 扫描代码中实际使用的 key
-   * 从 .vue/.ts/.js 文件中提取 t() 调用
-   */
   async scanUsedKeys(): Promise<Set<string>> {
     const usedKeys = new Set<string>()
 
-    // 扫描所有源代码文件
     const files = await FileUtils.scanFiles(['**/*.{vue,ts,js}'], {
       cwd: this.srcPath,
       absolute: false,
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts', '**/i18n/**'],
     })
 
-    // 正则匹配 t() 调用
-    // 支持：t('key'), t("key"), t(`key`), $t('key')
-    // 支持多行
     const regex = /(?:\$?t)\s*\(\s*([`'"])([\s\S]*?)\1/g
 
     for (const relativeFile of files) {
+      const pageName = this.extractPageFromFilePath(relativeFile)
+
+      if (!pageName || !shouldBuildPage(pageName)) {
+        continue
+      }
+
       const filePath = path.join(this.srcPath, relativeFile)
       const rawContent = await FileUtils.readFile(filePath)
 
-      // ⚠️ 移除注释，避免注释中的代码被识别为使用
       const content = this.removeComments(rawContent)
 
       let match
       while ((match = regex.exec(content)) !== null) {
         const key = match[2].trim()
 
-        // 过滤 zh_ 占位符
         if (!key.startsWith('zh_') && key) {
           usedKeys.add(key)
         }
@@ -143,30 +135,28 @@ export class KeyCleaner {
     return result
   }
 
-  /**
-   * 扫描所有语种 JSON 文件中定义的 key
-   */
   async scanDefinedKeys(): Promise<Map<string, UsageInfo>> {
     const definedKeys = new Map<string, UsageInfo>()
 
-    // 扫描所有 i18n/*.json 文件
     const jsonFiles = await FileUtils.scanFiles(['**/i18n/*.json'], {
       cwd: this.srcPath,
       absolute: false,
     })
 
     for (const relativeFile of jsonFiles) {
+      const page = this.extractPage(relativeFile)
+
+      if (!page || !shouldBuildPage(page)) {
+        continue
+      }
+
       const filePath = path.join(this.srcPath, relativeFile)
       const content = await FileUtils.readJSON(filePath)
 
-      // 扁平化 JSON，获取所有 key 路径
       const flatKeys = flattenJSON(content)
 
-      // 提取语种和页面信息
       const lang = this.extractLang(relativeFile)
-      const page = this.extractPage(relativeFile)
 
-      // 记录每个 key 的定义位置
       for (const key of Object.keys(flatKeys)) {
         if (!definedKeys.has(key)) {
           definedKeys.set(key, {
@@ -273,12 +263,13 @@ export class KeyCleaner {
     return match ? match[1] : 'unknown'
   }
 
-  /**
-   * 从文件路径提取页面名称
-   * 例如：page/example/i18n/en.json -> example
-   */
   private extractPage(filePath: string): string | null {
     const match = filePath.match(/([^/]+)\/i18n\/[a-z]{2,}\.json$/i)
+    return match ? match[1] : null
+  }
+
+  private extractPageFromFilePath(filePath: string): string | null {
+    const match = filePath.match(/^([^/\\]+)/)
     return match ? match[1] : null
   }
 }

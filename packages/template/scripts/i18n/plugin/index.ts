@@ -8,15 +8,7 @@ import { CodeReplacer, convertToReplaceTasks } from '../core/generator/code-repl
 import { defaultI18nConfig } from '../../../config/i18n.config'
 import { renderCleanupPage, getCleanupData, executeCleanup, parseBody } from './routes/cleanup'
 import { FileUtils } from '../core/utils/file-utils'
-import { loadPageFilter } from '../core/utils/page-filter'
 
-/**
- * i18n 开发工具插件
- * 特点：
- * 1. 启动时不执行重逻辑（不扫描、不分析）
- * 2. 只注册路由，按需执行
- * 3. 轻量级，不影响启动速度
- */
 export function i18nDevToolsPlugin(): Plugin {
   let actualPort: number = 5173
   let hasChecked = false
@@ -26,17 +18,17 @@ export function i18nDevToolsPlugin(): Plugin {
     apply: 'serve',
 
     configureServer(server: ViteDevServer) {
-      // 获取真实端口
       server.httpServer?.once('listening', () => {
         const address = server.httpServer?.address()
         if (address && typeof address === 'object') {
           actualPort = address.port
         }
 
-        // 执行快速扫描
         if (!hasChecked) {
           hasChecked = true
-          performQuickScan(actualPort)
+          setTimeout(() => {
+            performQuickScan(actualPort)
+          }, 2000)
         }
       })
 
@@ -125,27 +117,16 @@ export function i18nDevToolsPlugin(): Plugin {
   }
 }
 
-/**
- * 快速扫描并打印提示
- */
 async function performQuickScan(port: number) {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('🌍 i18n 工具检测中...')
 
   try {
-    // 加载页面过滤配置
-    const pageFilter = await loadPageFilter()
-    const scanner = new ZhScanner({
-      srcPath: defaultI18nConfig.srcPath,
-      pageFilter,
-    })
+    const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
     const quickScan = await scanner.quickScan()
 
     if (quickScan.count === 0) {
       console.log('✅ 未发现待处理的 zh_ 占位符')
-      if (pageFilter.buildPages.length === 0) {
-        console.log(chalk.yellow('   💡 提示: config/pages.ts 未配置要构建的页面'))
-      }
     } else {
       console.log(`\n⚠️  发现 ${quickScan.count} 个 zh_ 占位符待处理`)
       console.log(
@@ -165,15 +146,8 @@ async function performQuickScan(port: number) {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 }
 
-/**
- * 处理导入请求
- */
 async function handleImport(): Promise<string> {
-  const pageFilter = await loadPageFilter()
-  const scanner = new ZhScanner({
-    srcPath: defaultI18nConfig.srcPath,
-    pageFilter,
-  })
+  const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
   const placeholders = await scanner.scan()
 
   if (placeholders.length === 0) {
@@ -190,15 +164,8 @@ async function handleImport(): Promise<string> {
   return renderImportReport(matchResult)
 }
 
-/**
- * 获取导入数据
- */
 async function handleImportData() {
-  const pageFilter = await loadPageFilter()
-  const scanner = new ZhScanner({
-    srcPath: defaultI18nConfig.srcPath,
-    pageFilter,
-  })
+  const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
   const placeholders = await scanner.scan()
 
   const matcher = new CSVMatcher({
@@ -209,10 +176,6 @@ async function handleImportData() {
   return await matcher.match(placeholders)
 }
 
-/**
- * 验证翻译完整性
- * 检查每个key是否所有现有语种都有翻译
- */
 async function validateTranslations(
   matched: any[],
   srcPath: string
@@ -272,13 +235,9 @@ async function validateTranslations(
   }
 }
 
-/**
- * 执行导入
- */
 async function handleImportExec(data: any) {
   const { matched } = data
 
-  // ⚠️ 执行前检查：检测缺失翻译
   const validation = await validateTranslations(matched, defaultI18nConfig.srcPath)
 
   if (!validation.valid) {
@@ -291,12 +250,10 @@ async function handleImportExec(data: any) {
     }
   }
 
-  // 更新 JSON
   const updater = new JSONUpdater()
   const updateTasks = convertToUpdateTasks(matched, defaultI18nConfig.srcPath)
   const updateResult = await updater.update(updateTasks)
 
-  // 替换代码
   const replacer = new CodeReplacer()
   const replaceTasks = convertToReplaceTasks(matched)
   const replaceResult = await replacer.replace(replaceTasks)
@@ -309,9 +266,6 @@ async function handleImportExec(data: any) {
   }
 }
 
-/**
- * 渲染主面板
- */
 function renderDashboard(_port: number): string {
   return `<!DOCTYPE html>
 <html>
@@ -325,23 +279,23 @@ function renderDashboard(_port: number): string {
       background: #ffffff;
       color: #383838;
       min-height: 100vh;
-      padding: 2rem;
+      padding: 1.5rem;
     }
-    .container { max-width: 900px; margin: 0 auto; }
+    .container { max-width: 800px; margin: 0 auto; }
     .header {
-      padding: 1.5rem 0;
+      padding: 1rem 0;
       border-bottom: 1px solid #e5e5e5;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     .header h1 { 
-      font-size: 1.5rem; 
+      font-size: 1.25rem; 
       font-weight: 600;
       color: #171717;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.25rem;
     }
     .header p { 
       color: #737373;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
     .tools {
       display: flex;
@@ -349,43 +303,41 @@ function renderDashboard(_port: number): string {
       gap: 1px;
       background: #e5e5e5;
       border: 1px solid #e5e5e5;
-      border-radius: 6px;
+      border-radius: 4px;
       overflow: hidden;
     }
     .tool-card {
       background: #fafafa;
-      padding: 1rem 1.25rem;
+      padding: 0.875rem 1rem;
       text-decoration: none;
       color: inherit;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.875rem;
       transition: background 0.15s ease;
     }
-    .tool-card:hover {
-      background: #f5f5f5;
-    }
+    .tool-card:hover { background: #f5f5f5; }
     .tool-icon { 
-      font-size: 1.25rem;
-      width: 24px;
+      font-size: 1.125rem;
+      width: 20px;
       text-align: center;
     }
     .tool-content { flex: 1; }
     .tool-title { 
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 500;
       color: #171717;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
     }
     .tool-desc { 
       color: #737373;
-      font-size: 0.85rem;
-      line-height: 1.4;
+      font-size: 0.8rem;
+      line-height: 1.3;
     }
     .badge { 
-      padding: 0.25rem 0.5rem;
+      padding: 0.2rem 0.4rem;
       border-radius: 3px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 500;
       background: #0969da;
       color: #ffffff;
@@ -421,9 +373,6 @@ function renderDashboard(_port: number): string {
 </html>`
 }
 
-/**
- * 渲染无占位符页面
- */
 function renderNoPlaceholders(): string {
   return `<!DOCTYPE html>
 <html>
@@ -443,33 +392,32 @@ function renderNoPlaceholders(): string {
     }
     .message { 
       text-align: center;
-      max-width: 500px;
-      padding: 3rem 2rem;
+      max-width: 400px;
+      padding: 2rem 1.5rem;
     }
     .message h2 { 
       color: #171717;
-      font-size: 1.25rem;
+      font-size: 1.125rem;
       font-weight: 500;
       margin-bottom: 0.5rem;
     }
     .message p {
       color: #737373;
-      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
     }
     .back-link { 
       display: inline-block;
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.875rem;
       background: #0969da;
       color: white;
       text-decoration: none;
       border-radius: 4px;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 500;
       transition: background 0.15s;
     }
-    .back-link:hover {
-      background: #0550ae;
-    }
+    .back-link:hover { background: #0550ae; }
   </style>
 </head>
 <body>
@@ -482,9 +430,6 @@ function renderNoPlaceholders(): string {
 </html>`
 }
 
-/**
- * 渲染导入报告（简化版）
- */
 function renderImportReport(matchResult: any): string {
   return `<!DOCTYPE html>
 <html>
@@ -497,53 +442,63 @@ function renderImportReport(matchResult: any): string {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #ffffff;
       color: #383838;
-      padding: 2rem;
+      padding: 1.5rem;
     }
     .container { 
       max-width: 1200px;
       margin: 0 auto;
     }
     .header { 
-      padding: 1.5rem 0;
+      padding: 1rem 0;
       border-bottom: 1px solid #e5e5e5;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     h1 { 
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 600;
       color: #171717;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.25rem;
     }
     .header p {
       color: #737373;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
     .stats { 
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
     }
     .stat { 
-      padding: 1rem;
+      padding: 0.75rem;
       background: #f6f8fa;
       border-radius: 4px;
       border: 1px solid #d0d7de;
     }
     .stat-value { 
-      font-size: 1.75rem;
+      font-size: 1.5rem;
       font-weight: 600;
       color: #171717;
     }
     .stat-label { 
       color: #737373;
-      font-size: 0.85rem;
-      margin-top: 0.25rem;
+      font-size: 0.8rem;
+      margin-top: 0.2rem;
     }
-    .section { margin-bottom: 2rem; }
+    .actions-top { 
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding: 0.875rem;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+    }
+    .section { margin-bottom: 1.5rem; }
     .section h2 { 
       color: #171717;
-      font-size: 0.95rem;
+      margin-bottom: 0.875rem;
+      font-size: 0.9rem;
       font-weight: 500;
     }
     table {
@@ -553,32 +508,28 @@ function renderImportReport(matchResult: any): string {
       border-radius: 4px;
       overflow: hidden;
     }
-    thead {
-      background: #f6f8fa;
-    }
+    thead { background: #f6f8fa; }
     th {
-      padding: 0.6rem 1rem;
+      padding: 0.5rem 0.875rem;
       text-align: left;
       font-weight: 500;
       color: #737373;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       border-bottom: 1px solid #d0d7de;
     }
     td {
-      padding: 0.6rem 1rem;
+      padding: 0.5rem 0.875rem;
       border-top: 1px solid #e5e5e5;
       background: #ffffff;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
-    tbody tr:hover {
-      background: #f6f8fa;
-    }
+    tbody tr:hover { background: #f6f8fa; }
     code {
       background: #f6f8fa;
-      padding: 0.2rem 0.4rem;
+      padding: 0.2rem 0.375rem;
       border-radius: 3px;
       font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #cf222e;
     }
     code.copyable-key {
@@ -589,30 +540,22 @@ function renderImportReport(matchResult: any): string {
       background: #0969da;
       color: #ffffff;
     }
-    code.copyable-key:active {
-      transform: scale(0.95);
-    }
+    code.copyable-key:active { transform: scale(0.95); }
     .badge {
       display: inline-block;
-      padding: 0.2rem 0.4rem;
+      padding: 0.15rem 0.35rem;
       background: #0969da;
       color: #ffffff;
       border-radius: 3px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 500;
-      margin-right: 0.3rem;
-    }
-    .actions { 
-      display: flex;
-      gap: 0.75rem;
-      padding-top: 2rem;
-      border-top: 1px solid #e5e5e5;
+      margin-right: 0.25rem;
     }
     button { 
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.875rem;
       border: 1px solid #d0d7de;
       border-radius: 4px;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s;
@@ -662,26 +605,23 @@ function renderImportReport(matchResult: any): string {
       </div>
     </div>
 
+    <div class="actions-top">
+      <button class="btn-primary" onclick="executeImport()">确认导入 (${matchResult.matched.length} 项)</button>
+      ${
+        matchResult.unmatched.length > 0
+          ? `<button class="btn-secondary" onclick="copyUnmatchedKeys()">📋 复制未匹配 Key (${matchResult.unmatched.length})</button>`
+          : ''
+      }
+    </div>
+
     <div class="section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-          <h2>📋 翻译列表 (${matchResult.stats.total} 项)</h2>
-          <select id="pageFilter" onchange="filterByPage()" style="padding: 0.4rem 0.8rem; border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.85rem; background: #ffffff; cursor: pointer;">
-            <option value="">全部页面</option>
-          </select>
-        </div>
-        ${
-          matchResult.unmatched.length > 0
-            ? `<button class="button btn-secondary" onclick="copyUnmatchedKeys()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">📋 复制未匹配 Key (${matchResult.unmatched.length})</button>`
-            : ''
-        }
-      </div>
-      <table id="translationTable">
+      <h2>📋 翻译列表 (${matchResult.stats.total} 项)</h2>
+      <table>
         <thead>
           <tr>
-            <th style="width: 50px;">状态</th>
-            <th style="width: 25%;">中文</th>
+            <th style="width: 45px;">状态</th>
             <th style="width: 20%;">Key</th>
+            <th style="width: 25%;">中文</th>
             <th style="width: 20%;">English</th>
             <th>位置/语种</th>
           </tr>
@@ -690,27 +630,26 @@ function renderImportReport(matchResult: any): string {
           ${[...matchResult.matched.slice(0, 50), ...matchResult.unmatched.slice(0, 20)]
             .map((item: any) => {
               const isMatched = item.key && item.translations
-              const pageName = item.pageName || 'unknown'
               if (isMatched) {
                 const langs = Object.keys(item.translations)
                 const badges = langs.map((l) => '<span class="badge">' + l + '</span>').join('')
                 return `
-            <tr data-page="${pageName}">
+            <tr>
               <td><span class="badge" style="background: #2da44e;">✓</span></td>
-              <td>${item.zhText}</td>
               <td><code class="copyable-key" onclick="copyKey('${item.key}')" title="点击复制">${item.key}</code></td>
+              <td>${item.zhText}</td>
               <td>${item.translations.en || '-'}</td>
               <td>${badges}</td>
             </tr>
           `
               } else {
                 return `
-            <tr data-page="${pageName}">
+            <tr>
               <td><span class="badge" style="background: #cf222e;">✗</span></td>
+              <td style="color: #737373; font-size: 0.8rem;">-</td>
               <td>${item.zhText}</td>
-              <td style="color: #737373; font-size: 0.85rem;">-</td>
               <td style="color: #737373;">-</td>
-              <td style="font-size: 0.85rem; color: #737373;">${item.filePath}:${item.line}</td>
+              <td style="font-size: 0.8rem; color: #737373;">${item.filePath}:${item.line}</td>
             </tr>
           `
               }
@@ -718,64 +657,16 @@ function renderImportReport(matchResult: any): string {
             .join('')}
         </tbody>
       </table>
-      ${matchResult.matched.length + matchResult.unmatched.length > 70 ? `<p style="color: #737373; margin-top: 1rem; font-size: 0.9rem;">... 还有 ${matchResult.matched.length + matchResult.unmatched.length - 70} 项</p>` : ''}
-    </div>
-
-    <div class="actions">
-      <button class="btn-primary" onclick="executeImport()">确认导入 (${matchResult.matched.length} 项)</button>
-      
-      <a href="/__i18n" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;">
-      <button class="btn-secondary">返回
-      </button>
-      </a>
+      ${matchResult.matched.length + matchResult.unmatched.length > 70 ? `<p style="color: #737373; margin-top: 0.875rem; font-size: 0.85rem;">... 还有 ${matchResult.matched.length + matchResult.unmatched.length - 70} 项</p>` : ''}
     </div>
   </div>
 
   <script>
-    // 初始化页面筛选
-    function initPageFilter() {
-      const rows = document.querySelectorAll('#translationTable tbody tr')
-      const pages = new Set()
-      
-      rows.forEach(row => {
-        const page = row.getAttribute('data-page')
-        if (page && page !== 'unknown') {
-          pages.add(page)
-        }
-      })
-      
-      const select = document.getElementById('pageFilter')
-      Array.from(pages).sort().forEach(page => {
-        const option = document.createElement('option')
-        option.value = page
-        option.textContent = page
-        select.appendChild(option)
-      })
-    }
-    
-    // 按页面筛选
-    function filterByPage() {
-      const select = document.getElementById('pageFilter')
-      const selectedPage = select.value
-      const rows = document.querySelectorAll('#translationTable tbody tr')
-      
-      rows.forEach(row => {
-        const page = row.getAttribute('data-page')
-        if (!selectedPage || page === selectedPage) {
-          row.style.display = ''
-        } else {
-          row.style.display = 'none'
-        }
-      })
-    }
-    
-    // 复制单个 Key
     function copyKey(key) {
       navigator.clipboard.writeText(key).then(() => {
-        // 临时提示
         const toast = document.createElement('div')
         toast.textContent = '✓ 已复制: ' + key
-        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
+        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.6rem 0.875rem; border-radius: 4px; font-size: 0.85rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
         document.body.appendChild(toast)
         setTimeout(() => toast.remove(), 2000)
       }).catch(err => {
@@ -783,17 +674,12 @@ function renderImportReport(matchResult: any): string {
       })
     }
 
-    // 复制所有未匹配的 Key
     function copyUnmatchedKeys() {
       const unmatched = ${JSON.stringify(matchResult.unmatched)}
       const keys = unmatched.map(item => 'zh_' + item.zhText).join('\\n')
       
       navigator.clipboard.writeText(keys).then(() => {
-        const toast = document.createElement('div')
-        toast.textContent = '✓ 已复制 ' + unmatched.length + ' 个未匹配的 Key'
-        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
-        document.body.appendChild(toast)
-        setTimeout(() => toast.remove(), 2000)
+        alert('✅ 已复制 ' + unmatched.length + ' 个未匹配的 Key 到剪贴板！')
       }).catch(err => {
         alert('❌ 复制失败: ' + err.message)
       })
@@ -824,7 +710,6 @@ function renderImportReport(matchResult: any): string {
             '代码替换: ' + result.replacements + ' 处')
           location.reload()
         } else if (result.blocked && result.reason === 'missing_translations') {
-          // ⚠️ 缺失翻译被拦截
           const details = result.missingDetails || []
           let message = '🚫 导入已被阻止！\\n\\n'
           message += '检测到 ' + details.length + ' 个 key 缺少翻译：\\n\\n'
@@ -853,9 +738,6 @@ function renderImportReport(matchResult: any): string {
         btn.textContent = '确认导入'
       }
     }
-    
-    // 页面加载完成后初始化
-    initPageFilter()
   </script>
 </body>
 </html>`

@@ -183,14 +183,6 @@ const data = await http.get("/data", {
 const result = await http.post("/action", data, {
   errorCodeWhitelist: [404, 1001],
 } as RequestConfig);
-
-// 自定义重试配置
-const critical = await http.get("/critical", {
-  "axios-retry": {
-    retries: 5,
-    retryDelay: 2000,
-  },
-} as RequestConfig);
 ```
 
 ### 页面 API 定义

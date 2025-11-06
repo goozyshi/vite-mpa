@@ -1,6 +1,6 @@
 import path from 'path'
 import { FileUtils } from '../utils/file-utils'
-import { scanAndFilterPages, PageFilterConfig } from '../utils/page-filter'
+import { shouldBuildPage } from '../../../../config/pages'
 
 /**
  * zh_ 占位符信息
@@ -22,7 +22,6 @@ export interface QuickScanResult {
   count: number
   files: string[]
   pages: Map<string, number> // 页面 -> 数量
-  skippedPages: string[] // 被跳过的页面
 }
 
 /**
@@ -31,11 +30,9 @@ export interface QuickScanResult {
  */
 export class ZhScanner {
   private srcPath: string
-  private pageFilter?: PageFilterConfig
 
-  constructor(options: { srcPath: string; pageFilter?: PageFilterConfig }) {
+  constructor(options: { srcPath: string }) {
     this.srcPath = options.srcPath
-    this.pageFilter = options.pageFilter
   }
 
   /**
@@ -44,38 +41,22 @@ export class ZhScanner {
   async scan(): Promise<ZhPlaceholder[]> {
     const results: ZhPlaceholder[] = []
 
-    // 如果配置了页面过滤，只扫描启用的页面
-    let scanPatterns: string[] = ['**/*.vue', '**/*.ts', '**/*.js']
-
-    if (this.pageFilter) {
-      const { filtered, skipped } = await scanAndFilterPages(this.srcPath, this.pageFilter)
-
-      // 如果没有启用的页面，返回空结果
-      if (filtered.length === 0) {
-        console.log('⚠️  未配置要扫描的页面 (config/pages.ts buildPages 为空)')
-        return results
-      }
-
-      // 只扫描启用的页面
-      scanPatterns = filtered.flatMap((page) => [
-        `${page}/**/*.vue`,
-        `${page}/**/*.ts`,
-        `${page}/**/*.js`,
-      ])
-
-      if (skipped.length > 0) {
-        console.log(`📋 页面过滤: 启用 ${filtered.length} 个，跳过 ${skipped.length} 个`)
-      }
-    }
-
-    // 使用 fast-glob 扫描相关文件
-    const files = await FileUtils.scanFiles(scanPatterns, {
+    // 使用 fast-glob 扫描所有相关文件
+    const files = await FileUtils.scanFiles(['**/*.vue', '**/*.ts', '**/*.js'], {
       cwd: this.srcPath,
       absolute: false,
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts'],
     })
 
     for (const relativeFile of files) {
+      // 🔍 根据 pages.ts 配置过滤页面
+      const pageName = this.extractPageName(relativeFile)
+
+      // 如果没有页面名或不应该构建，跳过
+      if (!pageName || !shouldBuildPage(pageName)) {
+        continue
+      }
+
       const filePath = path.join(this.srcPath, relativeFile)
       const content = await FileUtils.readFile(filePath)
 
@@ -91,30 +72,7 @@ export class ZhScanner {
    * 用于启动时的快速检测
    */
   async quickScan(): Promise<QuickScanResult> {
-    let scanPatterns: string[] = ['**/*.{vue,ts,js}']
-    let skippedPages: string[] = []
-
-    // 如果配置了页面过滤，只扫描启用的页面
-    if (this.pageFilter) {
-      const { filtered, skipped } = await scanAndFilterPages(this.srcPath, this.pageFilter)
-
-      skippedPages = skipped
-
-      // 如果没有启用的页面，返回空结果
-      if (filtered.length === 0) {
-        return {
-          count: 0,
-          files: [],
-          pages: new Map(),
-          skippedPages: [],
-        }
-      }
-
-      // 只扫描启用的页面
-      scanPatterns = filtered.map((page) => `${page}/**/*.{vue,ts,js}`)
-    }
-
-    const files = await FileUtils.scanFiles(scanPatterns, {
+    const files = await FileUtils.scanFiles(['**/*.{vue,ts,js}'], {
       cwd: this.srcPath,
       absolute: false,
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts'],
@@ -125,6 +83,14 @@ export class ZhScanner {
     const pageStats = new Map<string, number>()
 
     for (const relativeFile of files) {
+      // 🔍 根据 pages.ts 配置过滤页面
+      const pageName = this.extractPageName(relativeFile)
+
+      // 如果没有页面名或不应该构建，跳过
+      if (!pageName || !shouldBuildPage(pageName)) {
+        continue
+      }
+
       const filePath = path.join(this.srcPath, relativeFile)
       const content = await FileUtils.readFile(filePath)
 
@@ -136,10 +102,7 @@ export class ZhScanner {
         totalCount += matches.length
 
         // 统计页面
-        const pageName = this.extractPageName(relativeFile)
-        if (pageName) {
-          pageStats.set(pageName, (pageStats.get(pageName) || 0) + matches.length)
-        }
+        pageStats.set(pageName, (pageStats.get(pageName) || 0) + matches.length)
       }
     }
 
@@ -147,7 +110,6 @@ export class ZhScanner {
       count: totalCount,
       files: affectedFiles,
       pages: pageStats,
-      skippedPages,
     }
   }
 
@@ -195,10 +157,14 @@ export class ZhScanner {
 
   /**
    * 从文件路径提取页面名称
-   * 例如: src/page/vip/pages/Home.vue -> vip
+   * 因为 cwd 设置为 srcPath (./src/page)，
+   * 所以相对路径是 example/pages/Home.vue 而不是 page/example/pages/Home.vue
+   * 直接提取第一个路径段即可
+   * 例如: example/pages/Home.vue -> example
    */
   private extractPageName(filePath: string): string | null {
-    const match = filePath.match(/page[/\\]([^/\\]+)/)
+    // 提取第一个路径段作为页面名
+    const match = filePath.match(/^([^/\\]+)/)
     return match ? match[1] : null
   }
 
