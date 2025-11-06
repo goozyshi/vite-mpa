@@ -60,7 +60,7 @@ export class ZhScanner {
       const filePath = path.join(this.srcPath, relativeFile)
       const content = await FileUtils.readFile(filePath)
 
-      const matches = this.extractZhPlaceholders(content, filePath)
+      const matches = this.extractZhPlaceholders(content, filePath, pageName)
       results.push(...matches)
     }
 
@@ -115,8 +115,15 @@ export class ZhScanner {
 
   /**
    * 提取文件中的所有 zh_ 占位符
+   * @param content 文件内容
+   * @param filePath 文件的绝对路径
+   * @param pageName 页面名称（已提取）
    */
-  private extractZhPlaceholders(content: string, filePath: string): ZhPlaceholder[] {
+  private extractZhPlaceholders(
+    content: string,
+    filePath: string,
+    pageName: string
+  ): ZhPlaceholder[] {
     const results: ZhPlaceholder[] = []
 
     // 匹配 t("zh_xxx") 或 $t('zh_xxx') 或 t(`zh_xxx`)
@@ -128,7 +135,6 @@ export class ZhScanner {
     while ((match = regex.exec(content)) !== null) {
       const zhText = match[2]
       const position = this.getPosition(content, match.index)
-      const pageName = this.extractPageName(filePath)
 
       results.push({
         zhText,
@@ -137,7 +143,7 @@ export class ZhScanner {
         line: position.line,
         column: position.column,
         suggestedKey: this.generateKey(zhText, pageName),
-        pageName: pageName || 'unknown',
+        pageName: pageName,
       })
     }
 

@@ -21,7 +21,7 @@
           {{ t('common.submit') }}
         </Button>
         <Button type="success" block>
-          {{ t('zh_去完成') }}
+          {{ t('chatgrow_v2300_18') }}
         </Button>
         <!-- <Button type="success" block>
           {{ t('useless') }}

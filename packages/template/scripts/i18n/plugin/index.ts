@@ -69,8 +69,16 @@ export function i18nDevToolsPlugin(): Plugin {
               res.setHeader('Content-Type', 'application/json; charset=utf-8')
               res.end(JSON.stringify(result))
             } catch (error: any) {
+              console.error('❌ 导入执行失败:', error)
               res.statusCode = 500
-              res.end(JSON.stringify({ success: false, error: error.message }))
+              res.setHeader('Content-Type', 'application/json; charset=utf-8')
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  error: error.message || String(error),
+                  stack: error.stack,
+                })
+              )
             }
           })
           return
@@ -236,33 +244,47 @@ async function validateTranslations(
 }
 
 async function handleImportExec(data: any) {
-  const { matched } = data
+  try {
+    const { matched } = data
 
-  const validation = await validateTranslations(matched, defaultI18nConfig.srcPath)
+    console.log(`\n📥 开始导入 ${matched.length} 个翻译...`)
 
-  if (!validation.valid) {
-    return {
-      success: false,
-      blocked: true,
-      reason: 'missing_translations',
-      message: '检测到缺失翻译，导入已被阻止',
-      missingDetails: validation.details,
+    const validation = await validateTranslations(matched, defaultI18nConfig.srcPath)
+
+    if (!validation.valid) {
+      return {
+        success: false,
+        blocked: true,
+        reason: 'missing_translations',
+        message: '检测到缺失翻译，导入已被阻止',
+        missingDetails: validation.details,
+      }
     }
-  }
 
-  const updater = new JSONUpdater()
-  const updateTasks = convertToUpdateTasks(matched, defaultI18nConfig.srcPath)
-  const updateResult = await updater.update(updateTasks)
+    const updater = new JSONUpdater()
+    const updateTasks = convertToUpdateTasks(matched, defaultI18nConfig.srcPath)
+    console.log(`\n📝 更新 JSON 文件...`)
+    const updateResult = await updater.update(updateTasks)
 
-  const replacer = new CodeReplacer()
-  const replaceTasks = convertToReplaceTasks(matched)
-  const replaceResult = await replacer.replace(replaceTasks)
+    const replacer = new CodeReplacer()
+    const replaceTasks = convertToReplaceTasks(matched)
+    console.log(`\n🔄 替换代码占位符...`)
+    const replaceResult = await replacer.replace(replaceTasks)
 
-  return {
-    success: true,
-    filesUpdated: updateResult.filesUpdated + replaceResult.filesUpdated,
-    keysAdded: updateResult.keysAdded,
-    replacements: replaceResult.replacements,
+    console.log(`\n✅ 导入完成！`)
+    console.log(`   文件更新: ${updateResult.filesUpdated + replaceResult.filesUpdated} 个`)
+    console.log(`   Keys 添加: ${updateResult.keysAdded} 个`)
+    console.log(`   代码替换: ${replaceResult.replacements} 处\n`)
+
+    return {
+      success: true,
+      filesUpdated: updateResult.filesUpdated + replaceResult.filesUpdated,
+      keysAdded: updateResult.keysAdded,
+      replacements: replaceResult.replacements,
+    }
+  } catch (error: any) {
+    console.error('\n❌ 导入过程中发生错误:', error)
+    throw error
   }
 }
 
@@ -703,6 +725,8 @@ function renderImportReport(matchResult: any): string {
 
         const result = await response.json()
 
+        console.log('导入结果:', result)
+        
         if (result.success) {
           alert('✅ 导入成功！\\n\\n' +
             '文件更新: ' + result.filesUpdated + ' 个\\n' +
@@ -728,11 +752,13 @@ function renderImportReport(matchResult: any): string {
           btn.disabled = false
           btn.textContent = '确认导入'
         } else {
-          alert('❌ 导入失败: ' + (result.error || result.message))
+          console.error('导入失败，返回对象:', result)
+          alert('❌ 导入失败: ' + (result.error || result.message || JSON.stringify(result)))
           btn.disabled = false
           btn.textContent = '确认导入'
         }
       } catch (error) {
+        console.error('执行异常:', error)
         alert('❌ 执行失败: ' + error.message)
         btn.disabled = false
         btn.textContent = '确认导入'

@@ -40,8 +40,13 @@ export class JSONUpdater {
       // 按语种分组
       const langUpdates = this.groupByLanguage(pageTasks)
 
-      // 只更新有翻译的语种文件
-      for (const [lang, updates] of Object.entries(langUpdates)) {
+      // 🎯 只更新实际存在的语种文件（避免处理未接入的语种）
+      for (const lang of existingLangs) {
+        const updates = langUpdates[lang]
+        if (!updates || Object.keys(updates).length === 0) {
+          continue // 跳过没有更新的语种
+        }
+
         const updated = await this.updateLangFile(pagePath, lang, updates)
         if (updated) {
           filesUpdated++
