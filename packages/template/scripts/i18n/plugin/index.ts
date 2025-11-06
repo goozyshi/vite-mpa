@@ -684,15 +684,19 @@ function renderImportReport(matchResult: any): string {
   </div>
 
   <script>
+    function showToast(message, bgColor = '#2da44e') {
+      const toast = document.createElement('div')
+      toast.textContent = message
+      toast.style.cssText = \`position: fixed; top: 20px; right: 20px; background: \${bgColor}; color: white; padding: 0.6rem 0.875rem; border-radius: 4px; font-size: 0.85rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);\`
+      document.body.appendChild(toast)
+      setTimeout(() => toast.remove(), 2000)
+    }
+
     function copyKey(key) {
       navigator.clipboard.writeText(key).then(() => {
-        const toast = document.createElement('div')
-        toast.textContent = '✓ 已复制: ' + key
-        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.6rem 0.875rem; border-radius: 4px; font-size: 0.85rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
-        document.body.appendChild(toast)
-        setTimeout(() => toast.remove(), 2000)
+        showToast('✓ 已复制: ' + key)
       }).catch(err => {
-        alert('复制失败: ' + err.message)
+        showToast('✗ 复制失败: ' + err.message, '#dc2626')
       })
     }
 
@@ -701,9 +705,9 @@ function renderImportReport(matchResult: any): string {
       const keys = unmatched.map(item => 'zh_' + item.zhText).join('\\n')
       
       navigator.clipboard.writeText(keys).then(() => {
-        alert('✅ 已复制 ' + unmatched.length + ' 个未匹配的 Key 到剪贴板！')
+        showToast('✓ 已复制 ' + unmatched.length + ' 个未匹配的 Key', '#2da44e')
       }).catch(err => {
-        alert('❌ 复制失败: ' + err.message)
+        showToast('✗ 复制失败: ' + err.message, '#dc2626')
       })
     }
 

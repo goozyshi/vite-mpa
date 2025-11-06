@@ -3,13 +3,9 @@ import App from './pages/App.vue'
 import router from './router'
 import { useLang } from '@/composables/useLang'
 import setupPlugins from '@/plugins'
-import { autoLoadEruda } from '@/utils'
 import i18n from './i18n'
 
-// 在开发环境下自动加载 Eruda（如果之前启用过）
-if (import.meta.env.DEV) {
-  autoLoadEruda()
-}
+// 注意：Eruda 已在 index.html 中早期加载，无需在此处加载
 
 const app = createApp(App)
 

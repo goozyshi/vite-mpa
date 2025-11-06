@@ -12,8 +12,5 @@ ${chalk.blue("Examples:")}
   ${chalk.cyan("npx create-vite-mpa my-app")}
   ${chalk.cyan("npm create vite-mpa@latest my-app")}
   ${chalk.cyan("pnpm create vite-mpa my-app")}
-
-For more information, visit:
-  https://github.com/yourusername/vite-mpa
 `);
 }
