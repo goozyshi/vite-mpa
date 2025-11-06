@@ -8,6 +8,7 @@ import { CodeReplacer, convertToReplaceTasks } from '../core/generator/code-repl
 import { defaultI18nConfig } from '../../../config/i18n.config'
 import { renderCleanupPage, getCleanupData, executeCleanup, parseBody } from './routes/cleanup'
 import { FileUtils } from '../core/utils/file-utils'
+import { loadPageFilter } from '../core/utils/page-filter'
 
 /**
  * i18n 开发工具插件
@@ -132,11 +133,19 @@ async function performQuickScan(port: number) {
   console.log('🌍 i18n 工具检测中...')
 
   try {
-    const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
+    // 加载页面过滤配置
+    const pageFilter = await loadPageFilter()
+    const scanner = new ZhScanner({
+      srcPath: defaultI18nConfig.srcPath,
+      pageFilter,
+    })
     const quickScan = await scanner.quickScan()
 
     if (quickScan.count === 0) {
       console.log('✅ 未发现待处理的 zh_ 占位符')
+      if (pageFilter.buildPages.length === 0) {
+        console.log(chalk.yellow('   💡 提示: config/pages.ts 未配置要构建的页面'))
+      }
     } else {
       console.log(`\n⚠️  发现 ${quickScan.count} 个 zh_ 占位符待处理`)
       console.log(
@@ -149,7 +158,7 @@ async function performQuickScan(port: number) {
     }
 
     console.log(`\n   📊 工具面板: ${chalk.cyan(`http://localhost:${port}/__i18n`)}`)
-  } catch (error) {
+  } catch {
     console.log(chalk.yellow('⚠️  快速扫描失败，请访问工具面板查看详情'))
   }
 
@@ -160,7 +169,11 @@ async function performQuickScan(port: number) {
  * 处理导入请求
  */
 async function handleImport(): Promise<string> {
-  const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
+  const pageFilter = await loadPageFilter()
+  const scanner = new ZhScanner({
+    srcPath: defaultI18nConfig.srcPath,
+    pageFilter,
+  })
   const placeholders = await scanner.scan()
 
   if (placeholders.length === 0) {
@@ -181,7 +194,11 @@ async function handleImport(): Promise<string> {
  * 获取导入数据
  */
 async function handleImportData() {
-  const scanner = new ZhScanner({ srcPath: defaultI18nConfig.srcPath })
+  const pageFilter = await loadPageFilter()
+  const scanner = new ZhScanner({
+    srcPath: defaultI18nConfig.srcPath,
+    pageFilter,
+  })
   const placeholders = await scanner.scan()
 
   const matcher = new CSVMatcher({
@@ -235,7 +252,7 @@ async function validateTranslations(
     const existingLangs = files.map((file) => path.basename(file, '.json')).sort()
 
     // 检查每个item
-    for (const item of items) {
+    for (const item of items as any[]) {
       const providedLangs = Object.keys(item.translations)
       const missingLangs = existingLangs.filter((lang) => !providedLangs.includes(lang))
 
@@ -295,7 +312,7 @@ async function handleImportExec(data: any) {
 /**
  * 渲染主面板
  */
-function renderDashboard(port: number): string {
+function renderDashboard(_port: number): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -304,70 +321,100 @@ function renderDashboard(port: number): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      color: #383838;
       min-height: 100vh;
       padding: 2rem;
     }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 900px; margin: 0 auto; }
     .header {
-      color: white;
-      padding: 2rem;
-      text-align: center;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid #e5e5e5;
       margin-bottom: 2rem;
     }
-    .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    .header p { opacity: 0.9; font-size: 1.1rem; }
+    .header h1 { 
+      font-size: 1.5rem; 
+      font-weight: 600;
+      color: #171717;
+      margin-bottom: 0.5rem;
+    }
+    .header p { 
+      color: #737373;
+      font-size: 0.9rem;
+    }
     .tools {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: #e5e5e5;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      overflow: hidden;
     }
     .tool-card {
-      background: white;
-      border-radius: 12px;
-      padding: 2rem;
+      background: #fafafa;
+      padding: 1rem 1.25rem;
       text-decoration: none;
       color: inherit;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: background 0.15s ease;
     }
     .tool-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      background: #f5f5f5;
     }
-    .tool-icon { font-size: 3rem; margin-bottom: 1rem; }
-    .tool-title { font-size: 1.5rem; margin-bottom: 0.5rem; color: #667eea; }
-    .tool-desc { color: #6b7280; margin-bottom: 1rem; line-height: 1.6; }
-    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px;
-      font-size: 0.875rem; font-weight: 600; background: #dbeafe; color: #1e40af; }
+    .tool-icon { 
+      font-size: 1.25rem;
+      width: 24px;
+      text-align: center;
+    }
+    .tool-content { flex: 1; }
+    .tool-title { 
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #171717;
+      margin-bottom: 0.25rem;
+    }
+    .tool-desc { 
+      color: #737373;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .badge { 
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: #0969da;
+      color: #ffffff;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>🌍 i18n 开发工具</h1>
-      <p>多语言翻译管理工具 - 统一入口</p>
+      <p>多语言翻译管理工具</p>
     </div>
     <div class="tools">
       <a href="/__i18n/import" class="tool-card">
         <div class="tool-icon">📥</div>
-        <h3 class="tool-title">增量导入</h3>
-        <p class="tool-desc">扫描代码中的 zh_ 占位符，从 CSV 匹配翻译并自动回填</p>
-        <span class="badge">点击使用</span>
+        <div class="tool-content">
+          <div class="tool-title">增量导入</div>
+          <div class="tool-desc">扫描代码中的 zh_ 占位符，从 CSV 匹配翻译并自动回填</div>
+        </div>
+        <span class="badge">使用</span>
       </a>
       <a href="/__i18n/cleanup" class="tool-card">
         <div class="tool-icon">🗑️</div>
-        <h3 class="tool-title">清理工具</h3>
-        <p class="tool-desc">检测并删除未使用的翻译 key</p>
-        <span class="badge">点击使用</span>
+        <div class="tool-content">
+          <div class="tool-title">清理工具</div>
+          <div class="tool-desc">检测并删除未使用的翻译 key</div>
+        </div>
+        <span class="badge">使用</span>
       </a>
-      <div class="tool-card" style="opacity: 0.6; cursor: not-allowed;">
-        <div class="tool-icon">📊</div>
-        <h3 class="tool-title">统计面板</h3>
-        <p class="tool-desc">查看翻译覆盖率和统计数据</p>
-        <span class="badge" style="background: #fef3c7; color: #92400e;">开发中</span>
-      </div>
     </div>
   </div>
 </body>
@@ -384,11 +431,45 @@ function renderNoPlaceholders(): string {
   <meta charset="utf-8">
   <title>增量导入 - i18n 工具</title>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 2rem; }
-    .message { text-align: center; padding: 3rem; background: #f0fdf4; border-radius: 12px; }
-    .message h2 { color: #16a34a; margin-bottom: 1rem; }
-    .back-link { display: inline-block; margin-top: 1rem; padding: 0.5rem 1rem;
-      background: #667eea; color: white; text-decoration: none; border-radius: 6px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      color: #383838;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .message { 
+      text-align: center;
+      max-width: 500px;
+      padding: 3rem 2rem;
+    }
+    .message h2 { 
+      color: #171717;
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    .message p {
+      color: #737373;
+      margin-bottom: 1.5rem;
+    }
+    .back-link { 
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #0969da;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .back-link:hover {
+      background: #0550ae;
+    }
   </style>
 </head>
 <body>
@@ -412,30 +493,147 @@ function renderImportReport(matchResult: any): string {
   <title>增量导入 - i18n 工具</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f5f5; padding: 2rem; }
-    .container { max-width: 1200px; margin: 0 auto; background: white;
-      border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .header { border-bottom: 2px solid #e5e7eb; padding-bottom: 1rem; margin-bottom: 2rem; }
-    h1 { color: #111827; margin-bottom: 0.5rem; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem; margin-bottom: 2rem; }
-    .stat { padding: 1rem; background: #f9fafb; border-radius: 8px; }
-    .stat-value { font-size: 2rem; font-weight: 700; color: #667eea; }
-    .stat-label { color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      color: #383838;
+      padding: 2rem;
+    }
+    .container { 
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header { 
+      padding: 1.5rem 0;
+      border-bottom: 1px solid #e5e5e5;
+      margin-bottom: 2rem;
+    }
+    h1 { 
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #171717;
+      margin-bottom: 0.5rem;
+    }
+    .header p {
+      color: #737373;
+      font-size: 0.9rem;
+    }
+    .stats { 
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat { 
+      padding: 1rem;
+      background: #f6f8fa;
+      border-radius: 4px;
+      border: 1px solid #d0d7de;
+    }
+    .stat-value { 
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #171717;
+    }
+    .stat-label { 
+      color: #737373;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
     .section { margin-bottom: 2rem; }
-    .section h2 { color: #374151; margin-bottom: 1rem; font-size: 1.25rem; }
-    .item { padding: 1rem; background: #f9fafb; border-radius: 8px; margin-bottom: 0.5rem; }
-    .item-zh { font-weight: 600; color: #111827; }
-    .item-key { color: #667eea; font-family: monospace; }
-    .item-en { color: #6b7280; }
-    .actions { display: flex; gap: 1rem; padding-top: 2rem; border-top: 2px solid #e5e7eb; }
-    button { padding: 0.75rem 1.5rem; border: none; border-radius: 8px;
-      font-size: 1rem; cursor: pointer; transition: all 0.3s; }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5568d3; }
-    .btn-secondary { background: #e5e7eb; color: #374151; }
-    .btn-secondary:hover { background: #d1d5db; }
+    .section h2 { 
+      color: #171717;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    thead {
+      background: #f6f8fa;
+    }
+    th {
+      padding: 0.6rem 1rem;
+      text-align: left;
+      font-weight: 500;
+      color: #737373;
+      font-size: 0.85rem;
+      border-bottom: 1px solid #d0d7de;
+    }
+    td {
+      padding: 0.6rem 1rem;
+      border-top: 1px solid #e5e5e5;
+      background: #ffffff;
+      font-size: 0.9rem;
+    }
+    tbody tr:hover {
+      background: #f6f8fa;
+    }
+    code {
+      background: #f6f8fa;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.85rem;
+      color: #cf222e;
+    }
+    code.copyable-key {
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    code.copyable-key:hover {
+      background: #0969da;
+      color: #ffffff;
+    }
+    code.copyable-key:active {
+      transform: scale(0.95);
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.4rem;
+      background: #0969da;
+      color: #ffffff;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-right: 0.3rem;
+    }
+    .actions { 
+      display: flex;
+      gap: 0.75rem;
+      padding-top: 2rem;
+      border-top: 1px solid #e5e5e5;
+    }
+    button { 
+      padding: 0.5rem 1rem;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary { 
+      background: #0969da;
+      color: white;
+      border-color: #0969da;
+    }
+    .btn-primary:hover { 
+      background: #0550ae;
+      border-color: #0550ae;
+    }
+    .btn-secondary { 
+      background: #f6f8fa;
+      color: #24292f;
+    }
+    .btn-secondary:hover { 
+      background: #f3f4f6;
+      border-color: #0969da;
+    }
   </style>
 </head>
 <body>
@@ -464,57 +662,143 @@ function renderImportReport(matchResult: any): string {
       </div>
     </div>
 
-    ${
-      matchResult.matched.length > 0
-        ? `
     <div class="section">
-      <h2>✅ 已匹配 (${matchResult.matched.length})</h2>
-      ${matchResult.matched
-        .slice(0, 10)
-        .map(
-          (item: any) => `
-        <div class="item">
-          <div class="item-zh">${item.zhText}</div>
-          <div class="item-key">→ ${item.key}</div>
-          ${item.translations.en ? `<div class="item-en">en: ${item.translations.en}</div>` : ''}
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <h2>📋 翻译列表 (${matchResult.stats.total} 项)</h2>
+          <select id="pageFilter" onchange="filterByPage()" style="padding: 0.4rem 0.8rem; border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.85rem; background: #ffffff; cursor: pointer;">
+            <option value="">全部页面</option>
+          </select>
         </div>
-      `
-        )
-        .join('')}
-      ${matchResult.matched.length > 10 ? `<p style="color: #6b7280; margin-top: 1rem;">... 还有 ${matchResult.matched.length - 10} 项</p>` : ''}
+        ${
+          matchResult.unmatched.length > 0
+            ? `<button class="button btn-secondary" onclick="copyUnmatchedKeys()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">📋 复制未匹配 Key (${matchResult.unmatched.length})</button>`
+            : ''
+        }
+      </div>
+      <table id="translationTable">
+        <thead>
+          <tr>
+            <th style="width: 50px;">状态</th>
+            <th style="width: 25%;">中文</th>
+            <th style="width: 20%;">Key</th>
+            <th style="width: 20%;">English</th>
+            <th>位置/语种</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[...matchResult.matched.slice(0, 50), ...matchResult.unmatched.slice(0, 20)]
+            .map((item: any) => {
+              const isMatched = item.key && item.translations
+              const pageName = item.pageName || 'unknown'
+              if (isMatched) {
+                const langs = Object.keys(item.translations)
+                const badges = langs.map((l) => '<span class="badge">' + l + '</span>').join('')
+                return `
+            <tr data-page="${pageName}">
+              <td><span class="badge" style="background: #2da44e;">✓</span></td>
+              <td>${item.zhText}</td>
+              <td><code class="copyable-key" onclick="copyKey('${item.key}')" title="点击复制">${item.key}</code></td>
+              <td>${item.translations.en || '-'}</td>
+              <td>${badges}</td>
+            </tr>
+          `
+              } else {
+                return `
+            <tr data-page="${pageName}">
+              <td><span class="badge" style="background: #cf222e;">✗</span></td>
+              <td>${item.zhText}</td>
+              <td style="color: #737373; font-size: 0.85rem;">-</td>
+              <td style="color: #737373;">-</td>
+              <td style="font-size: 0.85rem; color: #737373;">${item.filePath}:${item.line}</td>
+            </tr>
+          `
+              }
+            })
+            .join('')}
+        </tbody>
+      </table>
+      ${matchResult.matched.length + matchResult.unmatched.length > 70 ? `<p style="color: #737373; margin-top: 1rem; font-size: 0.9rem;">... 还有 ${matchResult.matched.length + matchResult.unmatched.length - 70} 项</p>` : ''}
     </div>
-    `
-        : ''
-    }
-
-    ${
-      matchResult.unmatched.length > 0
-        ? `
-    <div class="section">
-      <h2>⚠️ 未匹配 (${matchResult.unmatched.length})</h2>
-      ${matchResult.unmatched
-        .slice(0, 5)
-        .map(
-          (item: any) => `
-        <div class="item">
-          <div class="item-zh">${item.zhText}</div>
-          <div class="item-en" style="font-size: 0.875rem;">${item.filePath}:${item.line}</div>
-        </div>
-      `
-        )
-        .join('')}
-    </div>
-    `
-        : ''
-    }
 
     <div class="actions">
       <button class="btn-primary" onclick="executeImport()">确认导入 (${matchResult.matched.length} 项)</button>
-      <a href="/__i18n" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;">返回</a>
+      
+      <a href="/__i18n" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;">
+      <button class="btn-secondary">返回
+      </button>
+      </a>
     </div>
   </div>
 
   <script>
+    // 初始化页面筛选
+    function initPageFilter() {
+      const rows = document.querySelectorAll('#translationTable tbody tr')
+      const pages = new Set()
+      
+      rows.forEach(row => {
+        const page = row.getAttribute('data-page')
+        if (page && page !== 'unknown') {
+          pages.add(page)
+        }
+      })
+      
+      const select = document.getElementById('pageFilter')
+      Array.from(pages).sort().forEach(page => {
+        const option = document.createElement('option')
+        option.value = page
+        option.textContent = page
+        select.appendChild(option)
+      })
+    }
+    
+    // 按页面筛选
+    function filterByPage() {
+      const select = document.getElementById('pageFilter')
+      const selectedPage = select.value
+      const rows = document.querySelectorAll('#translationTable tbody tr')
+      
+      rows.forEach(row => {
+        const page = row.getAttribute('data-page')
+        if (!selectedPage || page === selectedPage) {
+          row.style.display = ''
+        } else {
+          row.style.display = 'none'
+        }
+      })
+    }
+    
+    // 复制单个 Key
+    function copyKey(key) {
+      navigator.clipboard.writeText(key).then(() => {
+        // 临时提示
+        const toast = document.createElement('div')
+        toast.textContent = '✓ 已复制: ' + key
+        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
+        document.body.appendChild(toast)
+        setTimeout(() => toast.remove(), 2000)
+      }).catch(err => {
+        alert('复制失败: ' + err.message)
+      })
+    }
+
+    // 复制所有未匹配的 Key
+    function copyUnmatchedKeys() {
+      const unmatched = ${JSON.stringify(matchResult.unmatched)}
+      const keys = unmatched.map(item => 'zh_' + item.zhText).join('\\n')
+      
+      navigator.clipboard.writeText(keys).then(() => {
+        const toast = document.createElement('div')
+        toast.textContent = '✓ 已复制 ' + unmatched.length + ' 个未匹配的 Key'
+        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);'
+        document.body.appendChild(toast)
+        setTimeout(() => toast.remove(), 2000)
+      }).catch(err => {
+        alert('❌ 复制失败: ' + err.message)
+      })
+    }
+
     async function executeImport() {
       if (!confirm('确认导入 ${matchResult.matched.length} 项翻译？\\n\\n这将更新 JSON 文件并替换代码中的占位符。')) {
         return
@@ -569,6 +853,9 @@ function renderImportReport(matchResult: any): string {
         btn.textContent = '确认导入'
       }
     }
+    
+    // 页面加载完成后初始化
+    initPageFilter()
   </script>
 </body>
 </html>`

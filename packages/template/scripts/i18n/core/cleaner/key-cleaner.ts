@@ -66,7 +66,10 @@ export class KeyCleaner {
 
     for (const relativeFile of files) {
       const filePath = path.join(this.srcPath, relativeFile)
-      const content = await FileUtils.readFile(filePath)
+      const rawContent = await FileUtils.readFile(filePath)
+
+      // ⚠️ 移除注释，避免注释中的代码被识别为使用
+      const content = this.removeComments(rawContent)
 
       let match
       while ((match = regex.exec(content)) !== null) {
@@ -80,6 +83,64 @@ export class KeyCleaner {
     }
 
     return usedKeys
+  }
+
+  /**
+   * 移除代码中的注释
+   * 支持：单行注释 //、多行注释
+   * 不支持：HTML 注释
+   */
+  private removeComments(code: string): string {
+    let result = code
+
+    // 移除多行注释 /* ... */
+    result = result.replace(/\/\*[\s\S]*?\*\//g, '')
+
+    // 移除 HTML/Vue 模板注释 <!-- ... -->
+    result = result.replace(/<!--[\s\S]*?-->/g, '')
+
+    // 移除单行注释 //（保留字符串中的 //）
+    // 分行处理，避免影响字符串
+    const lines = result.split('\n')
+    result = lines
+      .map((line) => {
+        // 查找 // 的位置，但要排除在字符串中的情况
+        let inString = false
+        let stringChar = ''
+        let commentStart = -1
+
+        for (let i = 0; i < line.length - 1; i++) {
+          const char = line[i]
+          const nextChar = line[i + 1]
+
+          // 处理字符串状态
+          if ((char === '"' || char === "'" || char === '`') && line[i - 1] !== '\\') {
+            if (!inString) {
+              inString = true
+              stringChar = char
+            } else if (char === stringChar) {
+              inString = false
+              stringChar = ''
+            }
+          }
+
+          // 检测 // 注释
+          if (!inString && char === '/' && nextChar === '/') {
+            commentStart = i
+            break
+          }
+        }
+
+        // 如果找到注释，截取注释前的部分
+        if (commentStart !== -1) {
+          return line.substring(0, commentStart)
+        }
+
+        return line
+      })
+      .join('\n')
+
+    return result
   }
 
   /**

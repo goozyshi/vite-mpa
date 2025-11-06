@@ -3,14 +3,13 @@
  * 路由：/__i18n/cleanup
  */
 
-import type { IncomingMessage, ServerResponse } from 'http'
+import type { IncomingMessage } from 'http'
 import { KeyCleaner, UnusedKeyInfo } from '../../core/cleaner/key-cleaner'
-import { checkAndPromptGitStatus } from '../../core/utils/git-utils'
 
 /**
  * 渲染清理工具界面
  */
-export async function renderCleanupPage(port: number): Promise<string> {
+export async function renderCleanupPage(_port: number): Promise<string> {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -22,8 +21,9 @@ export async function renderCleanupPage(port: number): Promise<string> {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      color: #383838;
       min-height: 100vh;
       padding: 2rem;
     }
@@ -31,51 +31,55 @@ export async function renderCleanupPage(port: number): Promise<string> {
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      overflow: hidden;
     }
     
     header {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-      padding: 2rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid #e5e5e5;
+      margin-bottom: 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     
-    h1 { font-size: 2rem; font-weight: 700; }
+    h1 { 
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #171717;
+    }
     
     .stats {
       display: flex;
-      gap: 2rem;
-      font-size: 1rem;
+      gap: 1.5rem;
+      font-size: 0.9rem;
+      color: #737373;
     }
     
     .stats span {
-      background: rgba(255,255,255,0.2);
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
     
-    .stats strong { font-weight: 700; }
+    .stats strong { 
+      font-weight: 500;
+      color: #171717;
+    }
     
-    main { padding: 2rem; }
+    main { padding: 0; }
     
     .loading {
       text-align: center;
       padding: 4rem;
-      color: #666;
+      color: #737373;
     }
     
     .spinner {
       display: inline-block;
-      width: 40px;
-      height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e5e5;
+      border-top: 3px solid #0969da;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin-bottom: 1rem;
@@ -88,36 +92,37 @@ export async function renderCleanupPage(port: number): Promise<string> {
     
     .actions {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
     }
     
     button {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
+      background: #f6f8fa;
+      color: #24292f;
     }
     
-    button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    button:active { transform: translateY(0); }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    
-    .btn-secondary {
+    button:hover {
       background: #f3f4f6;
-      color: #374151;
+      border-color: #0969da;
     }
+    button:active { transform: scale(0.98); }
     
     .btn-danger {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      background: #cf222e;
       color: white;
+      border-color: #cf222e;
+    }
+    
+    .btn-danger:hover {
+      background: #a40e26;
+      border-color: #a40e26;
     }
     
     button:disabled {
@@ -126,18 +131,19 @@ export async function renderCleanupPage(port: number): Promise<string> {
     }
     
     .page-group {
-      margin-bottom: 2rem;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
       overflow: hidden;
     }
     
     .page-group h2 {
-      background: #f9fafb;
-      padding: 1rem 1.5rem;
-      font-size: 1.25rem;
-      color: #374151;
-      border-bottom: 1px solid #e5e7eb;
+      background: #f6f8fa;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #171717;
+      border-bottom: 1px solid #d0d7de;
     }
     
     table {
@@ -146,84 +152,112 @@ export async function renderCleanupPage(port: number): Promise<string> {
     }
     
     thead {
-      background: #f9fafb;
+      background: #f6f8fa;
     }
     
     th {
-      padding: 0.75rem 1rem;
+      padding: 0.6rem 1rem;
       text-align: left;
-      font-weight: 600;
-      color: #6b7280;
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-weight: 500;
+      color: #737373;
+      font-size: 0.85rem;
     }
     
     td {
-      padding: 0.75rem 1rem;
-      border-top: 1px solid #f3f4f6;
+      padding: 0.6rem 1rem;
+      border-top: 1px solid #e5e5e5;
+      background: #ffffff;
     }
     
     tbody tr:hover {
-      background: #f9fafb;
+      background: #f6f8fa;
     }
     
     code {
-      background: #f3f4f6;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 0.875rem;
-      color: #be185d;
+      background: #f6f8fa;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.85rem;
+      color: #cf222e;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    code:hover {
+      background: #0969da;
+      color: #ffffff;
+    }
+    code:active {
+      transform: scale(0.95);
     }
     
     .badge {
       display: inline-block;
-      padding: 0.25rem 0.5rem;
-      background: #dbeafe;
-      color: #1e40af;
-      border-radius: 4px;
+      padding: 0.2rem 0.4rem;
+      background: #0969da;
+      color: #ffffff;
+      border-radius: 3px;
       font-size: 0.75rem;
-      font-weight: 600;
-      margin-right: 0.25rem;
+      font-weight: 500;
+      margin-right: 0.3rem;
     }
     
     .empty-state {
       text-align: center;
       padding: 4rem 2rem;
-      color: #6b7280;
+      color: #737373;
     }
     
-    .empty-state .icon { font-size: 4rem; margin-bottom: 1rem; }
-    .empty-state h3 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #374151; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .empty-state h3 { 
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: #171717;
+      font-weight: 500;
+    }
     
     input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
+      accent-color: #0969da;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🗑️ Unused Key Cleanup</h1>
+      <h1>🗑️ 清理未使用的 Key</h1>
       <div class="stats">
-        <span>Total: <strong id="totalCount">-</strong></span>
-        <span>Selected: <strong id="selectedCount">0</strong></span>
+        <span>总数: <strong id="totalCount">-</strong></span>
+        <span>已选: <strong id="selectedCount">0</strong></span>
       </div>
     </header>
     
     <main id="main">
       <div class="loading">
         <div class="spinner"></div>
-        <p>Loading unused keys...</p>
+        <p>加载未使用的 keys...</p>
       </div>
     </main>
   </div>
   
   <script>
     let unusedKeys = [];
+    
+    // 复制 Key
+    function copyKey(key) {
+      navigator.clipboard.writeText(key).then(() => {
+        // 临时提示
+        const toast = document.createElement('div');
+        toast.textContent = '✓ 已复制: ' + key;
+        toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2da44e; color: white; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.9rem; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+      }).catch(err => {
+        alert('复制失败: ' + err.message);
+      });
+    }
     
     // 加载数据
     async function loadData() {
@@ -236,7 +270,7 @@ export async function renderCleanupPage(port: number): Promise<string> {
         document.getElementById('main').innerHTML = \`
           <div class="empty-state">
             <div class="icon">❌</div>
-            <h3>Failed to Load Data</h3>
+            <h3>加载数据失败</h3>
             <p>\${error.message}</p>
           </div>
         \`;
@@ -251,8 +285,8 @@ export async function renderCleanupPage(port: number): Promise<string> {
         document.getElementById('main').innerHTML = \`
           <div class="empty-state">
             <div class="icon">✨</div>
-            <h3>All Keys Are In Use!</h3>
-            <p>No unused keys found. Your i18n files are clean.</p>
+            <h3>所有 Key 都在使用中！</h3>
+            <p>未发现未使用的 key，你的 i18n 文件很干净。</p>
           </div>
         \`;
         return;
@@ -260,9 +294,9 @@ export async function renderCleanupPage(port: number): Promise<string> {
       
       let html = \`
         <div class="actions">
-          <button class="btn-secondary" onclick="selectAll()">Select All</button>
-          <button class="btn-secondary" onclick="deselectAll()">Deselect All</button>
-          <button class="btn-danger" onclick="deleteSelected()" id="deleteBtn">Delete Selected</button>
+          <button class="btn-secondary" onclick="selectAll()">全选</button>
+          <button class="btn-secondary" onclick="deselectAll()">取消全选</button>
+          <button class="btn-danger" onclick="deleteSelected()" id="deleteBtn">删除所选</button>
         </div>
       \`;
       
@@ -279,8 +313,8 @@ export async function renderCleanupPage(port: number): Promise<string> {
                     <input type="checkbox" onchange="togglePage(this, '\${page.pageName}')" checked>
                   </th>
                   <th>Key</th>
-                  <th>Languages</th>
-                  <th style="width: 80px;">Files</th>
+                  <th>语种</th>
+                  <th style="width: 80px;">文件数</th>
                 </tr>
               </thead>
               <tbody>
@@ -298,7 +332,7 @@ export async function renderCleanupPage(port: number): Promise<string> {
                        onchange="updateSelectedCount()"
                        checked>
               </td>
-              <td><code>\${key.key}</code></td>
+              <td><code onclick="copyKey('\${key.key}')" title="点击复制">\${key.key}</code></td>
               <td>\${langs}</td>
               <td>\${key.fileCount}</td>
             </tr>
@@ -348,17 +382,17 @@ export async function renderCleanupPage(port: number): Promise<string> {
         .map(cb => cb.dataset.key);
       
       if (selected.length === 0) {
-        alert('Please select at least one key to delete');
+        alert('请至少选择一个 key');
         return;
       }
       
-      if (!confirm(\`Delete \${selected.length} keys from all language files?\\n\\nThis cannot be undone!\`)) {
+      if (!confirm(\`从所有语言文件中删除 \${selected.length} 个 keys？\\n\\n此操作无法撤销！\`)) {
         return;
       }
       
       const deleteBtn = document.getElementById('deleteBtn');
       deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
+      deleteBtn.textContent = '删除中...';
       
       try {
         const response = await fetch('/__i18n/cleanup/exec', {
@@ -370,17 +404,17 @@ export async function renderCleanupPage(port: number): Promise<string> {
         const result = await response.json();
         
         if (result.success) {
-          alert(\`✅ Success!\\n\\nKeys removed: \${result.keysRemoved}\\nFiles updated: \${result.filesUpdated}\`);
+          alert(\`✅ 删除成功！\\n\\n已删除 Keys: \${result.keysRemoved}\\n已更新文件: \${result.filesUpdated}\`);
           loadData(); // 重新加载
         } else {
-          alert('❌ Error: ' + result.error);
+          alert('❌ 错误: ' + result.error);
           deleteBtn.disabled = false;
-          deleteBtn.textContent = 'Delete Selected';
+          deleteBtn.textContent = '删除所选';
         }
       } catch (error) {
-        alert('❌ Error: ' + error.message);
+        alert('❌ 错误: ' + error.message);
         deleteBtn.disabled = false;
-        deleteBtn.textContent = 'Delete Selected';
+        deleteBtn.textContent = '删除所选';
       }
     }
     

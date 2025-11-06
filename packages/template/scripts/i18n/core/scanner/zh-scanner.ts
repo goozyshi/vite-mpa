@@ -1,5 +1,6 @@
 import path from 'path'
 import { FileUtils } from '../utils/file-utils'
+import { scanAndFilterPages, PageFilterConfig } from '../utils/page-filter'
 
 /**
  * zh_ 占位符信息
@@ -21,6 +22,7 @@ export interface QuickScanResult {
   count: number
   files: string[]
   pages: Map<string, number> // 页面 -> 数量
+  skippedPages: string[] // 被跳过的页面
 }
 
 /**
@@ -29,9 +31,11 @@ export interface QuickScanResult {
  */
 export class ZhScanner {
   private srcPath: string
+  private pageFilter?: PageFilterConfig
 
-  constructor(options: { srcPath: string }) {
+  constructor(options: { srcPath: string; pageFilter?: PageFilterConfig }) {
     this.srcPath = options.srcPath
+    this.pageFilter = options.pageFilter
   }
 
   /**
@@ -40,8 +44,32 @@ export class ZhScanner {
   async scan(): Promise<ZhPlaceholder[]> {
     const results: ZhPlaceholder[] = []
 
-    // 使用 fast-glob 扫描所有相关文件
-    const files = await FileUtils.scanFiles(['**/*.vue', '**/*.ts', '**/*.js'], {
+    // 如果配置了页面过滤，只扫描启用的页面
+    let scanPatterns: string[] = ['**/*.vue', '**/*.ts', '**/*.js']
+
+    if (this.pageFilter) {
+      const { filtered, skipped } = await scanAndFilterPages(this.srcPath, this.pageFilter)
+
+      // 如果没有启用的页面，返回空结果
+      if (filtered.length === 0) {
+        console.log('⚠️  未配置要扫描的页面 (config/pages.ts buildPages 为空)')
+        return results
+      }
+
+      // 只扫描启用的页面
+      scanPatterns = filtered.flatMap((page) => [
+        `${page}/**/*.vue`,
+        `${page}/**/*.ts`,
+        `${page}/**/*.js`,
+      ])
+
+      if (skipped.length > 0) {
+        console.log(`📋 页面过滤: 启用 ${filtered.length} 个，跳过 ${skipped.length} 个`)
+      }
+    }
+
+    // 使用 fast-glob 扫描相关文件
+    const files = await FileUtils.scanFiles(scanPatterns, {
       cwd: this.srcPath,
       absolute: false,
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts'],
@@ -63,7 +91,30 @@ export class ZhScanner {
    * 用于启动时的快速检测
    */
   async quickScan(): Promise<QuickScanResult> {
-    const files = await FileUtils.scanFiles(['**/*.{vue,ts,js}'], {
+    let scanPatterns: string[] = ['**/*.{vue,ts,js}']
+    let skippedPages: string[] = []
+
+    // 如果配置了页面过滤，只扫描启用的页面
+    if (this.pageFilter) {
+      const { filtered, skipped } = await scanAndFilterPages(this.srcPath, this.pageFilter)
+
+      skippedPages = skipped
+
+      // 如果没有启用的页面，返回空结果
+      if (filtered.length === 0) {
+        return {
+          count: 0,
+          files: [],
+          pages: new Map(),
+          skippedPages: [],
+        }
+      }
+
+      // 只扫描启用的页面
+      scanPatterns = filtered.map((page) => `${page}/**/*.{vue,ts,js}`)
+    }
+
+    const files = await FileUtils.scanFiles(scanPatterns, {
       cwd: this.srcPath,
       absolute: false,
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts'],
@@ -96,6 +147,7 @@ export class ZhScanner {
       count: totalCount,
       files: affectedFiles,
       pages: pageStats,
+      skippedPages,
     }
   }
 
