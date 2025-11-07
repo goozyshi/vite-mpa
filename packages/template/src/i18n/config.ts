@@ -20,7 +20,7 @@ export const LOCALE_CONFIG: Record<
 > = {
   en: {
     name: 'English',
-    label: 'English',
+    label: '英文',
     dir: 'ltr',
   },
   zh: {
@@ -30,7 +30,7 @@ export const LOCALE_CONFIG: Record<
   },
   ar: {
     name: 'Arabic',
-    label: 'العربية',
+    label: '阿语RTL',
     dir: 'rtl',
   },
 }

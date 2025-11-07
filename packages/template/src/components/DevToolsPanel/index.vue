@@ -17,9 +17,9 @@
           <div class="row">
             <span>🌐</span>
             <select v-model="currentLang" @change="handleLangChange">
-              <option value="zh">中文</option>
-              <option value="en">English</option>
-              <option value="ar">العربية</option>
+              <option v-for="locale in SUPPORTED_LOCALES" :key="locale" :value="locale">
+                {{ LOCALE_CONFIG[locale].label }}
+              </option>
             </select>
           </div>
 
@@ -42,6 +42,7 @@
 import { ref, onMounted } from 'vue'
 import { useLang } from '@/composables/useLang'
 import { loadEruda, isErudaEnabled } from '@/utils/eruda'
+import { SUPPORTED_LOCALES, LOCALE_CONFIG } from '@/i18n/config'
 
 const isDevOrTest = import.meta.env.DEV || import.meta.env.MODE === 'test'
 const expanded = ref(false)
