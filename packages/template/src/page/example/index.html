@@ -9,50 +9,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <link rel="icon" type="image/svg+xml" href="https://vitejs.dev/logo.svg" />
     <title>Example - Vite MPA</title>
-    <!-- 🔍 Eruda 早期加载：确保能捕获所有请求和错误 -->
-    <script>
-      ;(function () {
-        // 检查是否启用了 eruda（会话级别）
-        if (sessionStorage.getItem('vite_mpa_eruda_enabled') !== 'true') {
-          return
-        }
-
-        // 尝试从 localStorage 读取缓存的 eruda 代码
-        var cachedCode = localStorage.getItem('vite_mpa_eruda_code')
-
-        if (cachedCode) {
-          // ✅ 使用缓存的代码，直接执行（避免网络请求）
-          try {
-            eval(cachedCode)
-            window.eruda && window.eruda.init()
-          } catch (e) {
-            console.error('Eruda 缓存代码执行失败:', e)
-            // 清除失效的缓存，下次重新下载
-            localStorage.removeItem('vite_mpa_eruda_code')
-          }
-        } else {
-          // ❌ 没有缓存，需要下载（仅首次或缓存失效时）
-          var script = document.createElement('script')
-          script.src = 'https://fastly.jsdelivr.net/npm/eruda'
-          script.onload = function () {
-            window.eruda && window.eruda.init()
-
-            // 下载成功后，缓存代码到 localStorage
-            fetch('https://fastly.jsdelivr.net/npm/eruda')
-              .then(function (res) {
-                return res.text()
-              })
-              .then(function (code) {
-                localStorage.setItem('vite_mpa_eruda_code', code)
-              })
-              .catch(function (err) {
-                console.warn('Eruda 代码缓存失败:', err)
-              })
-          }
-          document.head.appendChild(script)
-        }
-      })()
-    </script>
+    <!-- 🔍 Eruda 调试工具由 Vite 插件自动注入（开发/测试环境） -->
   </head>
   <body>
     <div id="app"></div>

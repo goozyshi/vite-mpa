@@ -2,10 +2,11 @@ import { defineConfig, mergeConfig } from 'vite'
 import baseConfig from './vite.base'
 import pagesPlugin from '../scripts/preview/pages-plugin'
 import { i18nDevToolsPlugin } from '../scripts/i18n/plugin'
+import { erudaPlugin } from '../scripts/utils/eruda-plugin'
 
 export default defineConfig(async () => {
   return mergeConfig(baseConfig, {
-    plugins: [pagesPlugin(), i18nDevToolsPlugin()],
+    plugins: [pagesPlugin(), i18nDevToolsPlugin(), erudaPlugin()],
 
     server: {
       host: true,
