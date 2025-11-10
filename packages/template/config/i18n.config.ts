@@ -2,6 +2,9 @@ import type { PlaceholderRule } from '../scripts/i18n/core/matcher/placeholder'
 
 /**
  * i18n 工具配置
+ *
+ * ⚠️ 语种配置已迁移到 src/i18n/config.ts
+ * 本文件仅保留格式和规则配置
  */
 export interface I18nConfig {
   /**
@@ -45,7 +48,6 @@ export interface I18nConfig {
    */
   csv: {
     directory: string
-    columnMapping: Record<string, string[]>
   }
 
   /**
@@ -89,17 +91,7 @@ export const defaultI18nConfig: I18nConfig = {
 
   csv: {
     directory: './translations',
-    columnMapping: {
-      key: ['key', 'Key', '键'],
-      zh: ['中文（zh）', '中文', 'zh'],
-      en: ['English(en)', 'English', 'en'],
-      ar: ['Arabic(ar)', 'Arabic', 'ar'],
-      tr: ['Turkish', 'turkish', '土耳其语', 'tr'],
-      hi: ['hindi', 'Hindi', '印地语', 'hi'],
-      pa: ['punjabi', 'Punjabi', '旁遮普语', 'pa'],
-    },
   },
 
   srcPath: './src/page',
 }
-

@@ -40,10 +40,31 @@ export class CSVMatcher {
   private csvDir: string
   private processor: PlaceholderProcessor
   private translationMap: Map<string, any> | null = null
+  private columnMapping: Record<string, string[]>
 
-  constructor(options: { csvDir: string; placeholderRules?: PlaceholderRule[] }) {
+  constructor(options: {
+    csvDir: string
+    placeholderRules?: PlaceholderRule[]
+    columnMapping?: Record<string, string[]>
+  }) {
     this.csvDir = options.csvDir
     this.processor = new PlaceholderProcessor(options.placeholderRules || defaultPlaceholderRules)
+    this.columnMapping = options.columnMapping || this.getDefaultColumnMapping()
+  }
+
+  /**
+   * 获取默认的列名映射（向后兼容）
+   */
+  private getDefaultColumnMapping(): Record<string, string[]> {
+    return {
+      key: ['key', 'Key', '键'],
+      zh: ['中文（zh）', '中文', 'zh', 'Chinese'],
+      en: ['英语（en）', 'English(en)', 'English', 'en'],
+      ar: ['阿语（ar）', 'Arabic(ar)', 'Arabic', 'ar'],
+      tr: ['Turkish', 'turkish', '土耳其语', 'tr'],
+      hi: ['hindi', 'Hindi', '印地语', 'hi'],
+      pa: ['punjabi', 'Punjabi', '旁遮普语', 'pa'],
+    }
   }
 
   /**
@@ -202,15 +223,6 @@ export class CSVMatcher {
    * 获取语种对应的列名
    */
   private getColumnNames(lang: string): string[] {
-    const mappings: Record<string, string[]> = {
-      zh: ['中文（zh）', '中文', 'zh', 'Chinese'],
-      en: ['英语（en）', 'English(en)', 'English', 'en'],
-      ar: ['阿语（ar）', 'Arabic(ar)', 'Arabic', 'ar'],
-      tr: ['Turkish', 'turkish', '土耳其语', 'tr'],
-      hi: ['hindi', 'Hindi', '印地语', 'hi'],
-      pa: ['punjabi', 'Punjabi', '旁遮普语', 'pa'],
-    }
-
-    return mappings[lang] || [lang]
+    return this.columnMapping[lang] || [lang]
   }
 }

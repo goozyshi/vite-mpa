@@ -12,6 +12,13 @@ import { FileUtils } from '../core/utils/file-utils'
 import { CSVMatcher } from '../core/matcher/csv-matcher'
 import { flattenJSON, unflattenJSON, getAllKeys } from '../core/utils/json-utils'
 import { defaultI18nConfig } from '../../../config/i18n.config'
+import {
+  ALL_LANGUAGES,
+  isLanguageConfigured,
+  isLanguageEnabled,
+  getCSVColumns,
+  getAllConfiguredLanguages,
+} from '../../../src/i18n/config'
 
 // 解析命令行参数
 const args = arg({
@@ -57,6 +64,10 @@ interface PageLangResult {
   matched: number
   missing: number
   missingKeys: string[]
+  missingTranslations: Array<{
+    key: string
+    enValue: string
+  }>
   outputFile: string
 }
 
@@ -69,7 +80,36 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(chalk.gray(`Language Code: ${chalk.white(langCode)}`))
+  // 2. 检查语种是否已配置
+  if (!isLanguageConfigured(langCode)) {
+    console.error(chalk.red(`❌ Language '${langCode}' is not configured in src/i18n/config.ts`))
+    console.log(chalk.yellow('\n💡 Available languages:'))
+    getAllConfiguredLanguages().forEach((code) => {
+      const lang = ALL_LANGUAGES[code]
+      const status = lang.enabled ? chalk.green('enabled') : chalk.gray('not enabled')
+      console.log(chalk.gray(`  - ${code}: ${lang.name} (${status})`))
+    })
+    console.log(chalk.cyan('\n📝 To add a new language, update src/i18n/config.ts'))
+    process.exit(1)
+  }
+
+  // 3. 检查语种是否已启用
+  const langConfig = ALL_LANGUAGES[langCode]
+  if (isLanguageEnabled(langCode)) {
+    console.warn(chalk.yellow(`⚠️  Language '${langCode}' is already enabled in frontend`))
+    const { confirm } = await prompts({
+      type: 'confirm',
+      name: 'confirm',
+      message: 'Continue anyway?',
+      initial: true,
+    })
+    if (!confirm) {
+      console.log(chalk.gray('Cancelled'))
+      process.exit(0)
+    }
+  }
+
+  console.log(chalk.gray(`Language: ${chalk.white(langCode)} (${langConfig.name})`))
   console.log(chalk.gray(`CSV Directory: ${chalk.white(options.csvDir)}`))
   console.log(chalk.gray(`Dry Run: ${chalk.white(options.dryRun ? 'Yes' : 'No')}\n`))
 
@@ -106,9 +146,11 @@ async function main() {
 
   // 4. 初始化 CSV Matcher
   spinner.start('Loading CSV translations...')
+  const columnMapping = buildColumnMapping(langCode)
   const matcher = new CSVMatcher({
     csvDir: path.resolve(process.cwd(), options.csvDir),
     placeholderRules: defaultI18nConfig.placeholderRules,
+    columnMapping,
   })
   spinner.succeed('CSV translations loaded')
 
@@ -121,7 +163,7 @@ async function main() {
     totalSpinner.start(`[${i + 1}/${pages.length}] Processing page: ${page}`)
 
     try {
-      const result = await processPage(page, langCode, matcher, options.dryRun)
+      const result = await processPage(page, langCode, matcher, true) // 始终使用 dryRun 模式收集信息
       results.push(result)
       totalSpinner.succeed(
         `[${i + 1}/${pages.length}] ${page}: ${result.matched}/${result.totalKeys} matched`
@@ -129,6 +171,33 @@ async function main() {
     } catch (error: any) {
       totalSpinner.fail(`[${i + 1}/${pages.length}] Failed to process ${page}: ${error.message}`)
     }
+  }
+
+  // 5.5 检查是否有缺失的翻译
+  const allMissingTranslations: Array<{ page: string; key: string; enValue: string }> = []
+  for (const result of results) {
+    for (const missing of result.missingTranslations) {
+      allMissingTranslations.push({
+        page: result.page,
+        key: missing.key,
+        enValue: missing.enValue,
+      })
+    }
+  }
+
+  // 如果有任何缺失，终止执行
+  if (allMissingTranslations.length > 0) {
+    printMissingTranslationsError(allMissingTranslations, langCode, langConfig.name)
+    process.exit(1)
+  }
+
+  // 5.6 所有翻译完整，执行实际写入
+  if (!options.dryRun) {
+    totalSpinner.start('Writing language files...')
+    for (const result of results) {
+      await writePageLangFile(result.page, langCode, matcher)
+    }
+    totalSpinner.succeed('All language files created successfully')
   }
 
   // 6. 输出统计报告
@@ -196,15 +265,14 @@ async function processPage(
   }
 
   const enContent = await FileUtils.readJSON(enFile)
-
-  // 2. 获取所有 key 路径（扁平化）
   const keys = getAllKeys(enContent)
 
-  // 3. 从 CSV 匹配新语种翻译
+  // 2. 从 CSV 匹配新语种翻译
   const matchResult = await matcher.matchNewLang(keys, langCode)
 
-  // 4. 构建目标语种的 JSON（保持与 en.json 相同的结构）
+  // 3. 构建目标语种的 JSON
   const targetFlat: Record<string, string> = {}
+  const missingTranslations: Array<{ key: string; enValue: string }> = []
 
   // 构建匹配的 key -> translation 映射
   const matchedMap = new Map<string, string>()
@@ -212,20 +280,30 @@ async function processPage(
     matchedMap.set(item.key, item.translation)
   }
 
+  const flatEn = flattenJSON(enContent)
+
   for (const key of keys) {
     if (matchedMap.has(key)) {
-      targetFlat[key] = matchedMap.get(key)!
+      const translation = matchedMap.get(key)!
+
+      // 检查翻译内容是否为空
+      if (!translation || translation.trim() === '') {
+        missingTranslations.push({ key, enValue: flatEn[key] || key })
+        targetFlat[key] = flatEn[key] || key // 临时使用英文，但不会写入磁盘
+      } else {
+        targetFlat[key] = translation
+      }
     } else {
-      // 未匹配的 key，使用英文占位
-      const flatEn = flattenJSON(enContent)
-      targetFlat[key] = flatEn[key] || key
+      // 未匹配到翻译，记录为缺失
+      missingTranslations.push({ key, enValue: flatEn[key] || key })
+      targetFlat[key] = flatEn[key] || key // 临时使用英文，但不会写入磁盘
     }
   }
 
-  // 5. 反扁平化，恢复嵌套结构
+  // 4. 反扁平化，恢复嵌套结构
   const targetContent = unflattenJSON(targetFlat)
 
-  // 6. 写入文件（除非 dry-run）
+  // 5. 写入文件（除非 dry-run）
   if (!dryRun) {
     await FileUtils.ensureDir(path.dirname(targetFile))
     await FileUtils.writeJSON(targetFile, targetContent, 2)
@@ -235,10 +313,88 @@ async function processPage(
     page,
     totalKeys: keys.length,
     matched: matchResult.matched,
-    missing: matchResult.unmatched,
+    missing: missingTranslations.length,
     missingKeys: matchResult.unmatchedList,
+    missingTranslations,
     outputFile: path.relative(process.cwd(), targetFile),
   }
+}
+
+/**
+ * 打印缺失翻译错误
+ */
+function printMissingTranslationsError(
+  missingList: Array<{ page: string; key: string; enValue: string }>,
+  langCode: string,
+  langName: string
+) {
+  console.log('\n' + chalk.red('❌ 翻译不完整，无法生成语种文件'))
+  console.log(chalk.yellow(`\n发现 ${missingList.length} 个缺失的翻译项：\n`))
+
+  // 按页面分组显示
+  const byPage = new Map<string, Array<{ key: string; enValue: string }>>()
+  for (const item of missingList) {
+    if (!byPage.has(item.page)) {
+      byPage.set(item.page, [])
+    }
+    byPage.get(item.page)!.push({ key: item.key, enValue: item.enValue })
+  }
+
+  // 打印每个页面的缺失项
+  for (const [page, items] of byPage) {
+    console.log(chalk.cyan(`  📄 ${page}:`))
+    items.slice(0, 5).forEach((item) => {
+      console.log(chalk.gray(`    • ${item.key}`))
+      console.log(chalk.gray(`      English: "${item.enValue}"`))
+    })
+    if (items.length > 5) {
+      console.log(chalk.gray(`    ... 还有 ${items.length - 5} 个缺失项`))
+    }
+    console.log()
+  }
+
+  // 提供修复指导
+  console.log(chalk.yellow('📝 修复步骤：'))
+  console.log(chalk.gray('  1. 导出当前翻译到 CSV:'))
+  console.log(chalk.cyan(`     pnpm lang:export`))
+  console.log(chalk.gray(`  2. 在 CSV 中补全 ${langName}(${langCode}) 列的翻译内容`))
+  console.log(chalk.gray('  3. 重新执行新增语种命令:'))
+  console.log(chalk.cyan(`     pnpm lang:add ${langCode}`))
+  console.log()
+}
+
+/**
+ * 写入页面语种文件
+ */
+async function writePageLangFile(page: string, langCode: string, matcher: CSVMatcher): Promise<void> {
+  const pageDir = path.resolve(process.cwd(), `src/page/${page}`)
+  const enFile = path.join(pageDir, 'i18n/en.json')
+  const targetFile = path.join(pageDir, `i18n/${langCode}.json`)
+
+  // 1. 读取 en.json
+  const enContent = await FileUtils.readJSON(enFile)
+  const keys = getAllKeys(enContent)
+
+  // 2. 从 CSV 匹配新语种翻译
+  const matchResult = await matcher.matchNewLang(keys, langCode)
+
+  // 3. 构建目标语种的 JSON（此时已确保没有缺失）
+  const targetFlat: Record<string, string> = {}
+  const matchedMap = new Map<string, string>()
+  for (const item of matchResult.matchedList) {
+    matchedMap.set(item.key, item.translation)
+  }
+
+  for (const key of keys) {
+    targetFlat[key] = matchedMap.get(key)!
+  }
+
+  // 4. 反扁平化，恢复嵌套结构
+  const targetContent = unflattenJSON(targetFlat)
+
+  // 5. 写入文件
+  await FileUtils.ensureDir(path.dirname(targetFile))
+  await FileUtils.writeJSON(targetFile, targetContent, 2)
 }
 
 /**
@@ -249,47 +405,22 @@ function printSummary(results: PageLangResult[], langCode: string, dryRun: boole
 
   const totalKeys = results.reduce((sum, r) => sum + r.totalKeys, 0)
   const totalMatched = results.reduce((sum, r) => sum + r.matched, 0)
-  const totalMissing = results.reduce((sum, r) => sum + r.missing, 0)
 
+  const langName = ALL_LANGUAGES[langCode]?.name || langCode
+
+  console.log(chalk.gray(`  Language: ${chalk.white(langCode)} (${langName})`))
   console.log(chalk.gray(`  Total Pages: ${chalk.white(results.length)}`))
   console.log(chalk.gray(`  Total Keys: ${chalk.white(totalKeys)}`))
-  console.log(chalk.green(`  ✓ Matched: ${chalk.white(totalMatched)}`))
-
-  if (totalMissing > 0) {
-    console.log(chalk.yellow(`  ⚠ Missing: ${chalk.white(totalMissing)}`))
-  }
+  console.log(chalk.green(`  ✓ Matched: ${chalk.white(totalMatched)} (100%)`))
 
   if (!dryRun) {
     console.log(chalk.green(`  ✓ Files Created: ${chalk.white(results.length)}`))
   }
 
-  // 显示缺失的 keys（每个页面）
-  if (totalMissing > 0) {
-    console.log(chalk.yellow('\n⚠️  Missing Translations:\n'))
-
-    results.forEach((result) => {
-      if (result.missing > 0) {
-        console.log(chalk.yellow(`  ${result.page}: ${result.missing} keys`))
-
-        // 显示前 5 个缺失的 keys
-        const displayKeys = result.missingKeys.slice(0, 5)
-        displayKeys.forEach((key) => {
-          console.log(chalk.gray(`    - ${key}`))
-        })
-
-        if (result.missingKeys.length > 5) {
-          console.log(chalk.gray(`    ... and ${result.missingKeys.length - 5} more`))
-        }
-      }
-    })
-
-    console.log(chalk.cyan('\n💡 Add missing translations to CSV and run again'))
-  }
-
   if (dryRun) {
     console.log(chalk.cyan('\n🔍 Dry-run mode: No files were created'))
   } else {
-    console.log(chalk.green('\n✅ Language files created successfully!'))
+    console.log(chalk.green('\n✅ All translations matched successfully!'))
   }
 }
 
@@ -297,22 +428,51 @@ function printSummary(results: PageLangResult[], langCode: string, dryRun: boole
  * 提示更新配置文件
  */
 function printConfigUpdateHint(langCode: string) {
-  console.log(chalk.bold.cyan('\n📝 Next Steps\n'))
+  if (isLanguageEnabled(langCode)) {
+    console.log(chalk.green(`\n✅ Language '${langCode}' is already enabled in frontend`))
+    return
+  }
+
+  console.log(chalk.bold.cyan('\n📝 Enable Language in Frontend\n'))
   console.log(chalk.gray('Update src/i18n/config.ts:\n'))
 
-  console.log(chalk.white('1. Add to SUPPORTED_LOCALES:\n'))
-  console.log(
-    chalk.cyan(`   export const SUPPORTED_LOCALES = ['en', 'zh', 'ar', '${langCode}'] as const\n`)
-  )
+  console.log(chalk.white(`Find the '${langCode}' entry in ALL_LANGUAGES and change:\n`))
+  console.log(chalk.cyan(`  ${langCode}: {`))
+  console.log(chalk.cyan(`    code: '${langCode}',`))
+  console.log(chalk.cyan(`    name: '${ALL_LANGUAGES[langCode]?.name || 'Language Name'}',`))
+  console.log(chalk.cyan(`    ...`))
+  console.log(chalk.green(`    enabled: true,  // ← Change this from false to true`))
+  console.log(chalk.cyan(`  }\n`))
 
-  console.log(chalk.white('2. Add to LOCALE_CONFIG:\n'))
-  console.log(chalk.cyan(`   ${langCode}: {`))
-  console.log(chalk.cyan(`     name: 'Language Name',  // e.g., 'Türkçe' for Turkish`))
-  console.log(chalk.cyan(`     label: '${langCode.toUpperCase()}',`))
-  console.log(chalk.cyan(`     dir: 'ltr'  // or 'rtl' for right-to-left languages`))
-  console.log(chalk.cyan(`   }\n`))
+  console.log(chalk.gray('After enabling, the language will automatically appear in:'))
+  console.log(chalk.gray('  - SUPPORTED_LOCALES'))
+  console.log(chalk.gray('  - LOCALE_CONFIG'))
+  console.log(chalk.gray('  - DevToolsPanel language selector\n'))
+}
 
-  console.log(chalk.gray('3. Test the new language in your app\n'))
+/**
+ * 动态构建 CSV 列映射
+ */
+function buildColumnMapping(targetLang: string): Record<string, string[]> {
+  const mapping: Record<string, string[]> = {
+    key: ['key', 'Key', '键'],
+  }
+
+  // 添加目标语种的映射
+  const csvColumns = getCSVColumns(targetLang)
+  if (csvColumns.length > 0) {
+    mapping[targetLang] = csvColumns
+  } else {
+    // 如果没有配置，使用语种代码作为默认值
+    mapping[targetLang] = [targetLang, targetLang.toUpperCase()]
+    console.warn(
+      chalk.yellow(
+        `⚠️  No CSV columns configured for '${targetLang}', using default: [${mapping[targetLang].join(', ')}]`
+      )
+    )
+  }
+
+  return mapping
 }
 
 main().catch((error) => {
